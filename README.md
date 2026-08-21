@@ -35,25 +35,41 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 > **监听地址说明**：`LISTEN_ADDR` 支持三种写法——`:8787` 全部网卡（IPv4+IPv6 双栈，默认）、`0.0.0.0:8787` 仅 IPv4、`127.0.0.1:8787` 仅本机。
 > 改监听地址：编辑 `etc/.env` 中的 `LISTEN_ADDR` 后 `systemctl restart micropanel`。
 
-### 3. 正式安装（自定义路径，不强制根分区）
+### 3. 正式安装（从 GitHub Release 安装，路径自定义）
 
-> ⚠️ 本面板**不做自动下载/自动选择架构**（无托管服务器）：二进制需要你**手动准备**——本地构建，或 `--url` 手动指定（含 GitHub Release 直链）。
+> ⚠️ 面板**不自动选择架构**：请按服务器 CPU 架构选择安装包（`x86_64` → amd64，`aarch64/arm64` → arm64）。
+> 安装脚本会自动做两件事：**SHA256 校验**（发布包附带 `.sha256` 时）与**二进制自检**（`-version`，防架构不匹配/文件损坏）。
+
+**方式一：下载发布包 → 解压 → 运行 install.sh（推荐）**
 
 ```bash
-# 方式一：本地构建后安装（默认装到 /data/panel，-d 可自定义，均可省略）
-./build.sh
-bash install.sh                          # 默认 /data/panel，部署 + 注册并启动 systemd
+# 1. 下载对应架构的发布包（以 linux/arm64 为例，x86_64 服务器换成 amd64）
+curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
+
+# 2. 解压
+tar xzf micropanel-0.3.0-linux-arm64.tar.gz
+
+# 3. 进入解压目录运行安装脚本（默认装到 /data/panel，-d 可自定义）
+cd micropanel-0.3.0-linux-arm64
+bash install.sh                          # 部署 + 注册并启动 systemd
 bash install.sh --port 8787              # 自定义端口
 bash install.sh -d /srv/panel            # 自定义安装目录（可选）
 bash install.sh --no-systemd             # 仅部署，手动启动
-
-# 方式二：手动指定二进制/发布包地址（须自行选择与服务器架构匹配的包）
-bash install.sh --url https://your-cdn.com/panel-linux-arm64
 ```
 
-安装脚本会自动做两件事：**SHA256 校验**（`.tar.gz` 发布包附带 `.sha256` 时）与**二进制自检**（`-version`，防架构不匹配/文件损坏）。架构需你自行匹配：服务器是 `x86_64` 用 amd64 包、`aarch64/arm64` 用 arm64 包。
+**方式二：一行命令（install.sh 自动下载 + SHA256 校验）**
 
-升级 = 再次运行 `install.sh`，只替换 `bin/panel`，`.env` / `panel.json` / 插件目录均不受影响。
+```bash
+bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
+```
+
+**方式三：本地构建后安装（仅开发者/内测）**
+
+```bash
+./build.sh && bash install.sh -d /data/panel
+```
+
+升级 = 下载新版本发布包，重复方式一（或 `--url` 指定新包地址）再次运行 `install.sh`：只替换 `bin/panel`，`.env` / `panel.json` / 插件目录均不受影响。
 
 
 ### 4. 打包与发布（多平台）
@@ -73,15 +89,16 @@ bash install.sh --url https://your-cdn.com/panel-linux-arm64
 | `micropanel-<版本>-windows-amd64.tar.gz` | x64 Windows | 核心 + Hello（纯标准库） |
 | `micropanel-<版本>-darwin-amd64.tar.gz` | x64 macOS | 核心 + 基础插件 |
 
-服务器安装：
+服务器安装（从 GitHub Release）：
 
 ```bash
 # 解压安装（请选择与服务器架构匹配的包）
+curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
 tar xzf micropanel-0.3.0-linux-arm64.tar.gz
 bash micropanel-0.3.0-linux-arm64/install.sh -d /data/panel
 
 # 或 --url 直接指定发布包（.tar.gz 附 .sha256 时自动校验）
-bash install.sh -d /data/panel --url https://your-cdn.com/micropanel-0.3.0-linux-arm64.tar.gz
+bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
 ```
 
 > Windows / macOS 包不含 install.sh，解压后直接运行 `bin/panel(.exe)`，首次访问走 Web 初始化向导。
