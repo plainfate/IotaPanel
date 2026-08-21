@@ -1,7 +1,7 @@
 # MicroPanel（微面板）
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8.svg)](https://go.dev/)
 [![GitHub](https://img.shields.io/badge/GitHub-plainfate%2FMicroPanel-181717.svg?logo=github)](https://github.com/plainfate/MicroPanel)
 
 > **极简微内核 + 进程级隔离 + 按需启动** 的 Linux 服务器应用框架。
@@ -9,9 +9,9 @@
 
 - **微内核**：常驻内存仅约 8MB（Go 编译的单一二进制，内嵌前端与官方插件包）。
 - **插件 = 独立同级进程**：任意语言（Go、Rust、Python、Node.js、Shell…），崩溃隔离。
-- **按需冷启动**：开机只保活核心；点菜单才拉起插件（约 1-2 秒）；空闲自动退出释放内存。
+- **按需冷启动**：开机只运行核心；点菜单才拉起插件（约 1-2 秒）；空闲自动退出释放内存。
 - **原生 UI 融合**：安装插件后自动向侧边栏注入菜单，页面经反向代理嵌入主内容区，地址栏不跳转。
-- **插件自由**：从 URL / GitHub Release 一键安装插件包（SHA256 校验），或手动放入插件目录即装即用。
+- **插件自由**：从 URL / GitHub Release 安装插件包（可选 SHA256 校验），或手动放入插件目录即装即用。
 
 ---
 
@@ -33,17 +33,20 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 ```
 
 > **监听地址说明**：`LISTEN_ADDR` 支持三种写法——`:8787` 全部网卡（IPv4+IPv6 双栈，默认）、`0.0.0.0:8787` 仅 IPv4、`127.0.0.1:8787` 仅本机。
-> 改监听地址：编辑 `etc/.env` 中的 `LISTEN_ADDR` 后 `systemctl restart micropanel`。
+> 改监听地址（已通过 install.sh 安装时）：编辑安装目录 `etc/.env` 中的 `LISTEN_ADDR`，然后 `systemctl restart micropanel`。
 
 ### 3. 正式安装（从 GitHub Release 安装，路径自定义）
 
 > ⚠️ 面板**不自动选择架构**：请按服务器 CPU 架构选择安装包（`x86_64` → amd64，`aarch64/arm64` → arm64）。
-> 安装脚本会自动做两件事：**SHA256 校验**（发布包附带 `.sha256` 时）与**二进制自检**（`-version`，防架构不匹配/文件损坏）。
+> 安装脚本会自动做两件事：**SHA256 校验**（`--url` 安装且发布包附带 `.sha256` 时）与**二进制自检**（`-version`，防架构不匹配/文件损坏）。
 
 #### 方式一：手动安装（推荐，共 4 步）
 
 **第 1 步：下载对应架构的安装包**
-下面以 Linux ARM64 为例；x86_64 服务器把文件名里的 `arm64` 换成 `amd64` 即可，Windows / macOS 同理换成对应包名。
+下面以 Linux ARM64 为例。其他平台把文件名换成：
+- Linux x86_64 → `micropanel-0.3.0-linux-amd64.tar.gz`
+- Windows → `micropanel-0.3.0-windows-amd64.tar.gz`
+- macOS → `micropanel-0.3.0-darwin-amd64.tar.gz`
 
 ```bash
 curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
@@ -119,26 +122,14 @@ cd micropanel-0.3.0-darwin-amd64 && bin/panel
 | `micropanel-<版本>-windows-amd64.tar.gz` | x64 Windows | 核心 + Hello（纯标准库） |
 | `micropanel-<版本>-darwin-amd64.tar.gz` | x64 macOS | 核心 + 基础插件 |
 
-服务器安装（从 GitHub Release）：
-
-```bash
-# 解压安装（请选择与服务器架构匹配的包）
-curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
-tar xzf micropanel-0.3.0-linux-arm64.tar.gz
-bash micropanel-0.3.0-linux-arm64/install.sh -d /data/panel
-
-# 或 --url 直接指定发布包（.tar.gz 附 .sha256 时自动校验）
-bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
-```
-
-> Windows / macOS 包不含 install.sh，解压后直接运行 `bin/panel(.exe)`，首次访问走 Web 初始化向导。
+> 安装方法见上文「3. 正式安装」；Windows / macOS 包不含 install.sh，解压后直接运行 `bin/panel(.exe)`，首次访问走 Web 初始化向导。
 
 ### 5. 日常使用
 
 1. 浏览器访问面板 → 首次进入初始化向导（管理员账号 + 勾选基础插件）。
 2. 侧边栏点击插件菜单 → 首次约 1-2 秒冷启动 → 页面无缝嵌入主区域。
 3. 插件详情（点侧边栏插件名旁的 ⚙）：保活开关、启动/停止/重启、日志、卸载。
-4. 「插件」页可从 URL / GitHub Release 安装插件包（自动 SHA256 校验），手动放入 plugins/ 目录亦会自动登记。
+4. 「插件」页可从 URL / GitHub Release 安装插件包（粘贴 URL，可选填 SHA256 自动校验），手动放入 plugins/ 目录亦会自动登记。
 5. 设置页可调整「空闲退出时间」（默认 5 分钟）并查看 port-map.json 端口映射表。
 
 ---
@@ -181,7 +172,7 @@ bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/rel
 
 ### 进程管理机制
 
-1. **默认休眠**：开机只保活核心，所有插件进程不启动。
+1. **默认休眠**：开机只运行核心，所有插件进程都不启动。
 2. **冷启动（端口认领）**：请求 `/p/<name>/` 时核心同步拉起插件进程：
    - 在端口池（默认 19000-19999）选一个空闲端口；
    - 注入环境变量 `PLUGIN_PORT`、`PLUGIN_BIND`、`PLUGIN_NAME`、`PANEL_HOME`、`MICROPANEL_VERSION`；
@@ -193,9 +184,9 @@ bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/rel
 
 ### 插件 = 同级进程
 
-- 插件与核心**非父子关系**，跑在独立端口，核心通过环境变量 + 端口映射与其通信。
-- 插件崩溃/被杀 → 核心毫发无伤；下次点击自动重新拉起。
-- 任何语言：只要监听 `$PLUGIN_PORT` 就是一个合法插件（见 `plugins/hello`，纯 Shell + Python3）。
+- 插件是核心拉起的**独立进程**，跑在独立端口；核心只通过环境变量 + 端口映射与其通信，不共享内存、不做进程内调用。
+- 插件崩溃/被杀 → 核心毫发无伤，下次点击自动重新拉起；核心重启也不会中断已开启保活的插件（进程保留、端口复用）。
+- 任何语言：只要监听 `$PLUGIN_PORT` 就是一个合法插件（`manifest.command` 指向任意可执行文件或脚本即可；官方 `hello` 插件为 Go 实现，早期版本是纯 Shell + Python3）。
 
 ---
 
@@ -215,7 +206,7 @@ bind: 127.0.0.1          # 插件监听地址（默认本机；外部流量统�
 menus:                   # 注入侧边栏的菜单（可多个）
   - title: 我的插件
     icon: 🧩
-    path: /              # 插件侧路由，点击后 iframe 嵌入
+    path: /              # 插件页面内的路径（iframe 指向 /p/<插件名>/<path>）
     section: tools
 ```
 
@@ -245,9 +236,9 @@ my-plugin/
 
 分发方式：
 
-1. **拷贝即安装**：把目录放进 `/data/panel/plugins/<name>/`，重启面板（或下次启动）时核心自动扫描登记，侧边栏即刻出现菜单。命令示例：`scp -r my-plugin root@server:/data/panel/plugins/`。
+1. **拷贝即安装**：把插件目录放进 `/data/panel/plugins/<name>/`，重启面板后核心自动扫描登记，侧边栏即刻出现菜单。示例：`scp -r my-plugin root@server:/data/panel/plugins/`。
 2. **离线目录**：`tar czf my-plugin.tar.gz my-plugin/` 发给用户解压到插件目录即可。
-3. **URL / GitHub**：把插件包（.tar.gz）传到任意 URL（含 GitHub Release 直链），在面板「插件」页粘贴地址 + 可选 SHA256 即可安装。
+3. **URL / GitHub**：插件作者把 .tar.gz 发布到任意 URL（含 GitHub Release 直链），使用者在面板「插件」页粘贴地址（可选填 SHA256）即可安装。
 
 > 提示：面板核心只负责「分配端口 + 拉起进程 + 反向代理」，不关心插件用什么语言写。
 > 开发时可在插件目录直接运行 `PLUGIN_PORT=19000 PANEL_HOME=/data/panel ./bin/my-plugin` 独立调试。
@@ -255,6 +246,8 @@ my-plugin/
 ---
 
 ## 面板控制命令（CLI）
+
+安装后 `panel` 命令已软链到 `/usr/local/bin/panel`，任意目录可直接使用；未安装时用构建产物 `./bin/panel` 代替。
 
 ```bash
 panel status      # 查看状态：安装目录/监听地址/进程 PID/运行中插件数
@@ -267,7 +260,7 @@ panel version     # 版本号
 panel help        # 帮助
 ```
 
-systemd 安装时以上命令等价于 `systemctl {start,stop,restart} micropanel`。
+systemd 安装时 `start`/`stop`/`restart` 等价于 `systemctl {start,stop,restart} micropanel`；`status`/`log` 仍直接读取面板自身，无需 systemctl。
 登录安全：**单账号单会话**（新登录自动踢掉旧会话）；登录页可勾选「**记住我**」（30 天免登录），不勾选则为会话级（关浏览器即需重新登录）。
 
 ---
@@ -329,7 +322,7 @@ plugins/                   # 官方插件源码
   file-manager/            # Go：文件管理
   resource-monitor/        # Go：资源监控
   hello/                   # Go：极简保活示例（约 7MB）
-  terminal/               # Go：网页终端（Linux，xterm.js + PTY）
+  terminal/                # Go：网页终端（Linux，xterm.js + PTY）
 ```
 （面板前端位于 internal/embed/web/，纯 HTML/CSS/JS，编译期内嵌进核心二进制。）
 
