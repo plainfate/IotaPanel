@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 plainfate <https://github.com/plainfate>
 # 插件元信息（manifest.yaml）
 # 官方网页终端（Linux）：xterm.js + WebSocket + PTY。
 # 仅本机监听，外部流量走面板网关，需登录后使用。

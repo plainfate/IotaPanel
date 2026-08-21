@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 plainfate <https://github.com/plainfate>
 /* ============================================================
    MicroPanel 主界面逻辑（纯原生 JavaScript）
    ============================================================ */

@@ -7,3 +7,8 @@
 /dev-home/
 /tmp/
 *.log
+
+# 编辑器 / 系统文件
+.idea/
+.vscode/
+.DS_Store

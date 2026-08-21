@@ -1,3 +1,20 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Copyright (C) 2026 plainfate <https://github.com/plainfate>
+//
+// MicroPanel is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// MicroPanel is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+
 // Package db 封装面板持久化存储（轻量 JSON 文件存储）。
 //
 // 设计取舍：最初使用 SQLite（modernc 纯 Go 驱动），但驱动使核心二进制
@@ -86,6 +103,8 @@ func Open(home string) (*DB, error) {
 	if d.data.Settings == nil {
 		d.data.Settings = map[string]string{}
 	}
+	// 清理上次异常退出可能残留的临时文件（正常保存会 rename 掉，不会留下）
+	_ = os.Remove(path + ".tmp")
 	return d, nil
 }
 

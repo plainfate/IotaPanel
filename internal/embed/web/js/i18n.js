@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 plainfate <https://github.com/plainfate>
 /* ============================================================
    MicroPanel 国际化（中英双语）
    用法：

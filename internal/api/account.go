@@ -1,6 +1,23 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Copyright (C) 2026 plainfate <https://github.com/plainfate>
+//
+// MicroPanel is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// MicroPanel is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+
 package api
 
-// 账户与安全（1Panel 风格）：
+// 账户与安全：
 //   - 账户信息 / 修改密码（改密后强制其他会话下线）
 //   - 登录会话管理（列表、单条强制下线、全部下线）
 //   - 登录安全策略（失败次数上限 + 锁定分钟数）
@@ -177,7 +194,7 @@ func (s *Server) handleAccountPassword(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	// 改密后强制下线除当前会话外的所有会话（1Panel 同款策略）
+	// 改密后强制下线除当前会话外的所有会话（主流面板通行策略）
 	revoked, _ := s.db.RevokeOtherSessions(u.Username, sess.JTI)
 	s.log.Info("password changed, other sessions revoked", "username", u.Username, "revoked", revoked)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "revoked_sessions": revoked})

@@ -1,6 +1,23 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Copyright (C) 2026 plainfate <https://github.com/plainfate>
+//
+// MicroPanel is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// MicroPanel is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+
 package main
 
-// 面板命令行工具（对标 1Panel 的 1pctl）：
+// 面板命令行工具（风格与主流面板相近）：
 //   panel start | stop | restart | status | log | version | help
 // systemd 安装时通过 systemctl 管理；非 systemd 环境用进程信号 + 分离式重拉。
 
@@ -131,12 +148,12 @@ func cliStart() {
 		fmt.Println("面板已在运行")
 		return
 	}
-	// 恢复 PANEL_HOME：环境变量 > 上次运行留下的标记文件
+	// 恢复 PANEL_HOME：环境变量 > 运行中进程 > 二进制位置推导 > 标记文件（兜底）
+	// 优先级顺序保证标准布局（<安装目录>/bin/panel）不被其它实例留下的
+	// /tmp/micropanel-home 标记误导到错误的安装目录。
 	if os.Getenv("PANEL_HOME") == "" {
-		if data, err := os.ReadFile("/tmp/micropanel-home"); err == nil {
-			if home := strings.TrimSpace(string(data)); home != "" {
-				os.Setenv("PANEL_HOME", home)
-			}
+		if home := resolveHome(); home != "" {
+			os.Setenv("PANEL_HOME", home)
 		}
 	}
 	// 分离式启动：nohup + 后台运行，输出到日志文件；继承 PANEL_HOME（若有）
@@ -228,6 +245,12 @@ func resolveHome() string {
 	if err == nil {
 		if dir := filepath.Dir(filepath.Dir(exe)); filepath.Base(filepath.Dir(exe)) == "bin" {
 			return dir
+		}
+	}
+	// 兜底：二进制不在 <安装目录>/bin 布局时，用上次运行留下的标记文件
+	if data, err := os.ReadFile("/tmp/micropanel-home"); err == nil {
+		if home := strings.TrimSpace(string(data)); home != "" {
+			return home
 		}
 	}
 	return ""

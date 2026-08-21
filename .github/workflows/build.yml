@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build & Vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      # build.sh 会先生成 internal/embed/plugins（go:embed 依赖），再编译核心二进制
+      - name: Build (./build.sh)
+        run: ./build.sh
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Show artifact
+        run: ls -lh bin/panel && ./bin/panel version

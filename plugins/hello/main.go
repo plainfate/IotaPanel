@@ -1,7 +1,24 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Copyright (C) 2026 plainfate <https://github.com/plainfate>
+//
+// MicroPanel is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// MicroPanel is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+
 // Hello 演示插件（Go 版）。
 //
 // 说明：最初版本用 Shell + Python3（python3 -m http.server）实现，
-// 常驻内存约 37MB；改为 Go 后仅约 4MB，体现"极简保活"。
+// 常驻内存约 37MB；改为 Go 后约 7MB，体现"极简保活"。
 // 插件仍可任意语言编写（manifest.command 指向任何可执行文件/脚本）。
 //
 // 本插件同时演示面板核心注入的环境变量（PLUGIN_PORT / PANEL_HOME 等）。

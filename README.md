@@ -1,9 +1,13 @@
 # MicroPanel（微面板）
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg)](https://go.dev/)
+[![GitHub](https://img.shields.io/badge/GitHub-plainfate%2FMicroPanel-181717.svg?logo=github)](https://github.com/plainfate/MicroPanel)
+
 > **极简微内核 + 进程级隔离 + 按需启动** 的 Linux 服务器应用框架。
 > 它不是传统面板，而是服务器领域的「Chrome 浏览器」——核心只负责开窗口（网关），网页（功能）由社区插件无限创造。
 
-- **微内核**：常驻内存仅 10-20MB（Go 编译的单一二进制，内嵌前端与官方插件包）。
+- **微内核**：常驻内存仅约 8MB（Go 编译的单一二进制，内嵌前端与官方插件包）。
 - **插件 = 独立同级进程**：任意语言（Go、Rust、Python、Node.js、Shell…），崩溃隔离。
 - **按需冷启动**：开机只保活核心；点菜单才拉起插件（约 1-2 秒）；空闲自动退出释放内存。
 - **原生 UI 融合**：安装插件后自动向侧边栏注入菜单，页面经反向代理嵌入主内容区，地址栏不跳转。
@@ -13,7 +17,7 @@
 
 ## 快速开始
 
-### 1. 本地构建（需要 Go 1.24+）
+### 1. 本地构建（需要 Go 1.25+）
 
 ```bash
 ./build.sh
@@ -97,7 +101,7 @@ bash install.sh -d /data/panel --url https://your-cdn.com/micropanel-0.3.0-linux
 ```text
 /data/panel/                     # 用户自定义安装位置
 ├── bin/
-│   └── panel                    # 核心二进制（约 14MB，唯一常驻进程，空闲约 8MB）
+│   └── panel                    # 核心二进制（约 18MB，唯一常驻进程，空闲约 8MB）
 ├── etc/
 │   ├── .env                     # PANEL_HOME、LISTEN_ADDR、JWT_SECRET、IDLE_TIMEOUT
 │   └── port-map.json            # 端口映射表（插件名 -> {端口, PID}）
@@ -203,7 +207,7 @@ my-plugin/
 
 ---
 
-## 面板控制命令（CLI，对标 1pctl）
+## 面板控制命令（CLI）
 
 ```bash
 panel status      # 查看状态：安装目录/监听地址/进程 PID/运行中插件数
@@ -250,7 +254,7 @@ systemd 安装时以上命令等价于 `systemctl {start,stop,restart} micropane
 
 ## 与主流面板的本质区别
 
-| 维度 | 宝塔 / 1Panel | MicroPanel |
+| 维度 | 主流面板 | MicroPanel |
 |---|---|---|
 | 核心职责 | 集成所有功能 | 仅网关 + 进程调度 |
 | 安装位置 | 强制固定目录 | 安装时任意选择 |
@@ -277,7 +281,7 @@ internal/
 plugins/                   # 官方插件源码
   file-manager/            # Go：文件管理
   resource-monitor/        # Go：资源监控
-  hello/                   # Go：极简保活示例（约 4MB）
+  hello/                   # Go：极简保活示例（约 7MB）
   terminal/               # Go：网页终端（Linux，xterm.js + PTY）
 ```
 （面板前端位于 internal/embed/web/，纯 HTML/CSS/JS，编译期内嵌进核心二进制。）
@@ -295,6 +299,8 @@ plugins/                   # 官方插件源码
 
 ## 许可证（License）
 
-本项目采用 **知识共享署名-非商业性使用-相同方式共享 4.0 国际（CC BY-NC-SA 4.0）**。
-个人、学习、研究、非营利用途可自由使用；任何商业用途需另行取得授权。
-完整法律文本见 [LICENSE](LICENSE)（SPDX: CC-BY-NC-SA-4.0）。
+本项目采用 **GNU 通用公共许可证第 3 版（GPLv3）**（SPDX: `GPL-3.0-or-later`）。
+您可以自由使用、修改、复制与分发本软件，但修改版本或衍生作品必须同样以 GPLv3 授权并开放源代码。
+本软件按「现状」提供，不附带任何担保。完整法律文本见 [LICENSE](LICENSE)。
+
+版权所有（Copyright ©）2026 [plainfate](https://github.com/plainfate)，遵循 GPLv3 许可证发布。

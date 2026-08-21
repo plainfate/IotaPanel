@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 plainfate <https://github.com/plainfate>
 # ============================================================
 # MicroPanel 发布打包脚本（多平台）
 #
@@ -108,7 +110,8 @@ EOF
   fi
 
   tar -C dist -czf "dist/$NAME.tar.gz" "$NAME"
-  sha256sum "dist/$NAME.tar.gz" > "dist/$NAME.tar.gz.sha256"
+  # 校验文件用相对文件名（不带 dist/ 前缀），用户下载到任意目录即可 sha256sum -c
+  (cd dist && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
   echo "    完成: dist/$NAME.tar.gz ($(du -h "dist/$NAME.tar.gz" | cut -f1))"
   echo "    校验: $(awk '{print $1}' "dist/$NAME.tar.gz.sha256")"
 }

@@ -1,3 +1,20 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Copyright (C) 2026 plainfate <https://github.com/plainfate>
+//
+// MicroPanel is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// MicroPanel is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+
 // MicroPanel 面板核心入口。
 //
 // 极简微内核：仅负责用户认证、反向代理网关、插件进程管理。
@@ -70,13 +87,19 @@ func main() {
 		case "start", "stop", "restart", "uninstall", "status", "log", "help", "-h", "--help":
 			runCLI(os.Args[1:])
 			os.Exit(0)
+		case "serve":
+			// 显式服务启动子命令（`panel start` 内部以 nohup panel serve 拉起），继续启动服务
+		default:
+			// 未知参数必须报错退出，绝不静默当作服务启动（避免拼错命令后误启一个面板）
+			fmt.Printf("未知命令: %s\n\n", os.Args[1])
+			printCLIHelp()
+			os.Exit(2)
 		}
-		// 其余未知参数（如 serve）继续作为服务启动
 	}
 
 	// 极简资源策略：给 Go 堆设一个硬上限（可被 GOMEMLIMIT 环境变量覆盖）。
 	// 注意：不要改 GOGC——保持默认 100，突发流量后内存才能及时回收，
-	// 实测空闲常驻约 11MB（含 27MB 二进制中常被触达的代码页）。
+	// 实测空闲常驻约 8MB（含 18MB 二进制中常被触达的代码页）。
 	if os.Getenv("GOMEMLIMIT") == "" {
 		debug.SetMemoryLimit(48 << 20) // 堆上限 48MB，防止突发请求撑大常驻内存
 	}
