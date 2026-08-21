@@ -57,10 +57,20 @@ bash install.sh -d /srv/panel            # 自定义安装目录（可选）
 bash install.sh --no-systemd             # 仅部署，手动启动
 ```
 
-**方式二：一行命令（install.sh 自动下载 + SHA256 校验）**
+**方式二：一行命令（install.sh 自动下载 + SHA256 校验），四种平台选其一：**
 
 ```bash
+# Linux x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-amd64.tar.gz
+
+# Linux ARM64
 bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
+
+# Windows x64（包内无 install.sh：下载解压后直接运行 bin\panel.exe）
+curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-windows-amd64.tar.gz
+
+# macOS x64（包内无 install.sh：下载解压后直接运行 bin/panel）
+curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-darwin-amd64.tar.gz
 ```
 
 **方式三：本地构建后安装（仅开发者/内测）**
