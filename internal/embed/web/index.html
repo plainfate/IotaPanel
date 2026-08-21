@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<!--
+  MicroPanel 主界面：
+  - 侧边栏：插件菜单（由 manifest.yaml 注入）+ 商城/设置/关于
+  - 主区域：插件页面通过 iframe 嵌入（反向代理 /p/<插件名>/*，地址栏不跳转）
+  - 抽屉：插件详情（保活开关、启停、日志、卸载）
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MicroPanel</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- ===== 侧边栏 ===== -->
+  <aside id="sidebar">
+    <div class="brand"><span>☁️</span> MicroPanel</div>
+    <div class="nav-scroll">
+      <!-- 已安装插件的菜单动态注入到这里 -->
+      <div id="plugin-nav"></div>
+
+      <div class="nav-section-title" data-i18n="system"></div>
+      <nav id="sys-nav">
+        <a class="nav-item" href="#/overview">🏠 <span data-i18n="overview"></span></a>
+        <a class="nav-item" href="#/plugins">🧩 <span data-i18n="plugins"></span></a>
+        <a class="nav-item" href="#/settings">⚙️ <span data-i18n="settings"></span></a>
+        <a class="nav-item" href="#/about">ℹ️ <span data-i18n="about"></span></a>
+      </nav>
+    </div>
+    <div class="sidebar-footer">
+      <span id="user-name">…</span>
+      <button class="btn btn-ghost btn-sm" id="btn-logout" data-i18n="logout"></button>
+    </div>
+  </aside>
+
+  <!-- ===== 主区域 ===== -->
+  <main id="main">
+    <!-- 插件页面（iframe 嵌入） -->
+    <div id="plugin-view" class="hidden">
+      <iframe id="plugin-frame" src="about:blank" title="plugin"></iframe>
+      <!-- 冷启动遮罩：首次点击等待 1-2 秒拉起插件进程 -->
+      <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <div id="loading-text">正在冷启动插件…</div>
+      </div>
+    </div>
+
+    <!-- 概览页 -->
+    <div id="page-overview" class="page hidden">
+      <div class="page-title" data-i18n="ovTitle"></div>
+      <div class="page-sub" data-i18n="ovSub"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px">
+        <div class="settings-card" style="margin:0"><div class="kv"><span class="k" data-i18n="ovVersion"></span><b id="ov-version">-</b></div><div class="kv"><span class="k" data-i18n="ovUptime"></span><b id="ov-uptime">-</b></div><div class="kv"><span class="k" data-i18n="ovPlugins"></span><b id="ov-plugins">-</b></div></div>
+        <div class="settings-card" style="margin:0"><div class="kv"><span class="k" data-i18n="ovHome"></span><span id="ov-home" style="word-break:break-all">-</span></div><div class="kv"><span class="k" data-i18n="ovListen"></span><b id="ov-listen">-</b></div><div class="kv"><span class="k" data-i18n="ovIdle"></span><b id="ov-idle">-</b></div></div>
+      </div>
+      <div class="settings-card">
+        <h3 data-i18n="ovInstalled"></h3>
+        <div id="ov-plugins-list" class="muted" style="font-size:13px">加载中…</div>
+      </div>
+    </div>
+
+    <!-- 插件页（安装管理，替代商城） -->
+    <div id="page-plugins" class="page hidden">
+      <div class="page-title" data-i18n="plTitle"></div>
+      <div class="page-sub" data-i18n="plSub"></div>
+      <div class="settings-card" style="padding:16px 18px">
+        <h3 style="margin-bottom:10px">🔗 <span data-i18n="plUrlInstall"></span></h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input class="input" id="url-input" placeholder="https://github.com/xxx/plugin/releases/download/v1/plugin.tar.gz" data-i18n="plUrlPh" data-i18n-ph style="flex:2;min-width:260px">
+          <input class="input" id="url-sha256" placeholder="SHA256（可选）" data-i18n="plShaPh" data-i18n-ph style="flex:1;min-width:190px;font-family:ui-monospace,monospace;font-size:12px">
+          <button class="btn btn-primary" id="btn-url-install" data-i18n="plDownload"></button>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:8px">GitHub Release 的 .tar.gz 直链可直接粘贴；手动安装：把插件目录复制到 <code style="font-family:ui-monospace,monospace">PANEL_HOME/plugins/&lt;name&gt;/</code> 后 <code style="font-family:ui-monospace,monospace">panel restart</code>。</div>
+      </div>
+      <div class="settings-card">
+        <h3 data-i18n="ovInstalled"></h3>
+        <div id="plugins-manage"></div>
+      </div>
+    </div>
+
+    <!-- 设置页 -->
+    <div id="page-settings" class="page hidden">
+      <div class="page-title" data-i18n="stTitle"></div>
+      <div class="page-sub" data-i18n="stSub"></div>
+
+      <!-- 外观主题 -->
+      <div class="settings-card">
+        <h3>🎨 <span data-i18n="thTitle"></span></h3>
+        <div class="theme-picker" id="theme-picker"></div>
+        <h4 style="margin:16px 0 8px;font-size:13px;color:var(--muted)">🌐 <span data-i18n="lang"></span></h4>
+        <div class="theme-picker" id="lang-picker"></div>
+      </div>
+
+      <!-- 面板服务 -->
+      <div class="settings-card">
+        <h3>🖥️ <span data-i18n="svTitle"></span></h3>
+        <div class="field" style="max-width:340px">
+          <label for="listen-port" data-i18n="svListenPort"></label>
+          <div style="display:flex;gap:8px">
+            <input class="input" type="number" id="listen-port" min="1" max="65535">
+            <button class="btn btn-primary" id="btn-save-port" data-i18n="svSavePort"></button>
+          </div>
+        </div>
+        <div class="kv"><span class="k" data-i18n="svInstallDir"></span><span id="set-home">-</span></div>
+        <div class="kv"><span class="k" data-i18n="svCurrentListen"></span><span id="set-listen">-</span></div>
+      </div>
+
+      <!-- 账户与安全 -->
+      <div class="settings-card">
+        <h3>👤 <span data-i18n="acTitle"></span></h3>
+        <div class="kv"><span class="k" data-i18n="acUsername"></span><span id="acc-username">-</span> <button class="btn btn-ghost btn-sm" id="btn-change-username">修改用户名</button></div>
+        <div class="kv"><span class="k" data-i18n="acCreated"></span><span id="acc-created">-</span></div>
+        <div class="kv"><span class="k" data-i18n="acLastLogin"></span><span id="acc-last-login">-</span></div>
+        <h4 style="margin:16px 0 10px;font-size:13px;color:var(--muted)" data-i18n="acChangePw"></h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;max-width:640px">
+          <input class="input" type="password" id="pw-old" placeholder="原密码" data-i18n="acOldPw" data-i18n-ph autocomplete="current-password">
+          <input class="input" type="password" id="pw-new" placeholder="新密码（至少 6 位）" data-i18n="acNewPw" data-i18n-ph autocomplete="new-password">
+          <input class="input" type="password" id="pw-new2" placeholder="确认新密码" data-i18n="acConfirmPw" data-i18n-ph autocomplete="new-password">
+          <button class="btn btn-primary" id="btn-change-pw" data-i18n="acChangePwBtn"></button>
+        </div>
+        <h4 style="margin:16px 0 10px;font-size:13px;color:var(--muted)" data-i18n="acPolicy"></h4>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;max-width:640px;align-items:flex-end">
+          <div class="field" style="margin:0;flex:1;min-width:150px">
+            <label for="sec-fail" data-i18n="acFailLimit"></label>
+            <input class="input" type="number" id="sec-fail" min="1" max="100">
+          </div>
+          <div class="field" style="margin:0;flex:1;min-width:150px">
+            <label for="sec-lock" data-i18n="acLockMinutes"></label>
+            <input class="input" type="number" id="sec-lock" min="1" max="1440">
+          </div>
+          <button class="btn btn-primary" id="btn-save-sec" data-i18n="acSavePolicy"></button>
+        </div>
+        <h4 style="margin:16px 0 10px;font-size:13px;color:var(--muted)" data-i18n="acSessions"></h4>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btn-sm" id="btn-revoke-all" data-i18n="acRevokeAll"></button>
+        </div>
+        <table class="portmap">
+          <thead><tr><th data-i18n="acTime"></th><th data-i18n="acIp"></th><th data-i18n="acBrowser"></th><th style="text-align:right">操作</th></tr></thead>
+          <tbody id="sessions-body"><tr><td colspan="4" style="color:var(--muted)">加载中…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- 系统操作 -->
+      <div class="settings-card">
+        <h3>⚙️ <span data-i18n="soTitle"></span></h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-danger" id="btn-restart" data-i18n="soRestart"></button>
+          <span class="muted" style="font-size:12px">等价于命令行 <code style="font-family:ui-monospace,monospace">panel restart</code>（或 systemctl restart micropanel）</span>
+        </div>
+        <h4 style="margin:16px 0 8px;font-size:13px;color:var(--muted)" data-i18n="soCoreLog"></h4>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <button class="btn btn-ghost btn-sm" id="btn-core-log" data-i18n="soRefreshLog"></button>
+        </div>
+        <pre id="core-log" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11.5px;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all">（暂无日志）</pre>
+      </div>
+
+      <!-- 插件策略 -->
+      <div class="settings-card">
+        <h3 data-i18n="ppTitle"></h3>
+        <div class="field" style="max-width:320px">
+          <label for="idle-min" data-i18n="ppIdleTimeout"></label>
+          <div style="display:flex;gap:8px">
+            <input class="input" type="number" id="idle-min" min="1" max="1440">
+            <button class="btn btn-primary" id="btn-save-idle" data-i18n="ppSave"></button>
+          </div>
+        </div>
+        <div class="kv"><span class="k" data-i18n="ppPortMapFile"></span><span>etc/port-map.json</span></div>
+        <div class="kv"><span class="k" data-i18n="ppPortPool"></span><span id="port-pool">-</span></div>
+      </div>
+      <div class="settings-card">
+        <h3 data-i18n="ppPortMapTable"></h3>
+        <table class="portmap">
+          <thead><tr><th data-i18n="ppPlugin"></th><th data-i18n="ppPort"></th><th data-i18n="ppPid"></th><th data-i18n="ppStartedAt"></th></tr></thead>
+          <tbody id="portmap-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 关于页 -->
+    <div id="page-about" class="page hidden">
+      <div class="page-title" data-i18n="abTitle"></div>
+      <div class="page-sub" data-i18n="abSub"></div>
+      <div class="about-card">
+        <div class="kv"><span class="k" data-i18n="ovVersion"></span><span id="about-version">-</span></div>
+        <div class="kv"><span class="k">安装目录（PANEL_HOME）</span><span id="about-home">-</span></div>
+        <div class="kv"><span class="k" data-i18n="ovListen"></span><span id="about-listen">-</span></div>
+        <div class="kv"><span class="k" data-i18n="ovUptime"></span><span id="about-uptime">-</span></div>
+      </div>
+      <div class="about-card" style="color:var(--muted);font-size:13px">
+        核心仅负责：用户认证、反向代理网关、插件进程调度。插件是独立同级进程，可用任意语言编写；
+        默认休眠、按需冷启动、空闲自动退出释放内存；开启「后台保活」后进程常驻，核心重启也不受影响。
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ===== 插件详情抽屉 ===== -->
+<div id="drawer-mask" class="hidden"></div>
+<aside id="drawer" class="hidden">
+  <span class="dr-close" id="drawer-close">✕</span>
+  <div class="dr-title" id="dr-title">-</div>
+  <div style="color:var(--muted);font-size:12.5px" id="dr-meta">-</div>
+
+  <div class="dr-row"><span class="k">运行状态</span><span id="dr-status">-</span></div>
+  <div class="dr-row"><span class="k">端口 / PID</span><span id="dr-port">-</span></div>
+  <div class="dr-row">
+    <span class="k" data-i18n="drKeepalive"></span>
+    <label class="switch"><input type="checkbox" id="dr-keepalive"><span class="slider"></span></label>
+  </div>
+
+  <div class="dr-btns">
+    <button class="btn btn-sm" id="dr-start" data-i18n="drStart"></button>
+    <button class="btn btn-sm" id="dr-stop" data-i18n="drStop"></button>
+    <button class="btn btn-sm" id="dr-restart" data-i18n="drRestart"></button>
+  </div>
+
+  <h4>插件日志</h4>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <button class="btn btn-ghost btn-sm" id="dr-log-refresh" data-i18n="soRefreshLog"></button>
+    <span style="color:var(--muted);font-size:12px">logs/plugins/&lt;name&gt;.log</span>
+  </div>
+  <pre id="dr-log">（暂无日志）</pre>
+
+  <h4>危险操作</h4>
+  <button class="btn btn-danger btn-sm" style="width:100%;justify-content:center" id="dr-uninstall" data-i18n="drUninstall"></button>
+</aside>
+
+<!-- 轻提示 -->
+<div id="toast" class="hidden"></div>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

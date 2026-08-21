@@ -1,0 +1,16 @@
+# 插件元信息（manifest.yaml）
+# 本插件展示「极简保活」：Go 实现，常驻仅约 4MB（早期 Python 版 37MB）。
+# 插件仍可用任意语言编写：command 指向任何可执行文件/脚本（如 bin/start.sh）。
+name: hello
+title: Hello 演示
+version: 0.2.0
+author: MicroPanel 官方
+description: 极简保活示例（Go，常驻约 4MB）
+language: go
+command: bin/hello        # 入口可以是任意可执行文件/脚本
+bind: 127.0.0.1
+menus:
+  - title: Hello
+    icon: 👋
+    path: /
+    section: tools

@@ -1,0 +1,258 @@
+// Package api 提供面板 REST API 与前端页面路由。
+package api
+
+import (
+	"bufio"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io/fs"
+	"log/slog"
+	"net"
+	"net/http"
+	"time"
+
+	"micropanel/internal/auth"
+	"micropanel/internal/config"
+	"micropanel/internal/db"
+	"micropanel/internal/embed"
+	"micropanel/internal/gateway"
+	"micropanel/internal/plugins"
+)
+
+type ctxKey int
+
+const sessionKey ctxKey = 0
+
+type Server struct {
+	cfg   *config.Config
+	db    *db.DB
+	mgr   *plugins.Manager
+	gw    *gateway.Gateway
+	prog  *setupProgress
+	guard *loginGuard // 登录失败锁定
+	start time.Time
+	log   *slog.Logger
+}
+
+func NewServer(cfg *config.Config, database *db.DB, mgr *plugins.Manager, logger *slog.Logger) *Server {
+	return &Server{
+		cfg:   cfg,
+		db:    database,
+		mgr:   mgr,
+		gw:    gateway.New(mgr),
+		prog:  &setupProgress{},
+		guard: &loginGuard{fails: map[string]int{}, until: map[string]time.Time{}},
+		start: time.Now(),
+		log:   logger,
+	}
+}
+
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/status", s.auth(s.handleStatus))
+	mux.HandleFunc("POST /api/login", s.handleLogin)
+	mux.HandleFunc("POST /api/logout", s.handleLogout)
+	mux.HandleFunc("GET /api/me", s.auth(s.handleMe))
+	mux.HandleFunc("GET /api/account", s.auth(s.handleAccount))
+	mux.HandleFunc("POST /api/account/username", s.auth(s.handleUsernameChange))
+	mux.HandleFunc("POST /api/account/password", s.auth(s.handleAccountPassword))
+	mux.HandleFunc("GET /api/account/sessions", s.auth(s.handleSessionsList))
+	mux.HandleFunc("POST /api/account/sessions/revoke", s.auth(s.handleSessionRevoke))
+	mux.HandleFunc("POST /api/account/sessions/revoke-all", s.auth(s.handleSessionsRevokeAll))
+	mux.HandleFunc("GET /api/security", s.auth(s.handleSecurityGet))
+	mux.HandleFunc("PUT /api/security", s.auth(s.handleSecurityPut))
+	mux.HandleFunc("GET /api/setup/state", s.handleSetupState)
+	mux.HandleFunc("POST /api/setup/start", s.handleSetupStart)
+	mux.HandleFunc("GET /api/setup/status", s.handleSetupStatus)
+	mux.HandleFunc("GET /api/plugins", s.auth(s.handlePluginsList))
+	mux.HandleFunc("POST /api/plugins/{name}/start", s.auth(s.handlePluginStart))
+	mux.HandleFunc("POST /api/plugins/{name}/stop", s.auth(s.handlePluginStop))
+	mux.HandleFunc("POST /api/plugins/{name}/restart", s.auth(s.handlePluginRestart))
+	mux.HandleFunc("POST /api/plugins/{name}/keepalive", s.auth(s.handlePluginKeepalive))
+	mux.HandleFunc("GET /api/plugins/{name}/log", s.auth(s.handlePluginLog))
+	mux.HandleFunc("DELETE /api/plugins/{name}", s.auth(s.handlePluginDelete))
+	mux.HandleFunc("GET /api/store", s.handleStoreList) // 未初始化时对向导开放
+	mux.HandleFunc("POST /api/store/{name}/install", s.auth(s.handleStoreInstall))
+	mux.HandleFunc("POST /api/store/install-url", s.auth(s.handleStoreInstallURL))
+	mux.HandleFunc("GET /api/settings", s.auth(s.handleSettingsGet))
+	mux.HandleFunc("PUT /api/settings", s.auth(s.handleSettingsPut))
+	mux.HandleFunc("GET /api/log", s.auth(s.handleLog))
+	mux.HandleFunc("POST /api/system/restart", s.auth(s.handleSystemRestart))
+	// 插件网关：/p/<插件名>/* 支持任意方法（GET 页面、POST 插件 API 等），需登录
+	mux.Handle("/p/", s.auth(http.HandlerFunc(s.gw.ServeHTTP)))
+	mux.HandleFunc("/", s.handleUI)
+	return s.logRequests(mux)
+}
+
+// ---------- 中间件 ----------
+
+func (s *Server) auth(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie(auth.CookieName)
+		if err != nil {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "未登录"})
+			return
+		}
+		sess, ok := auth.ParseToken(c.Value, []byte(s.cfg.JWTSecret))
+		if !ok {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "会话无效或已过期"})
+			return
+		}
+		// 会话持久化校验：令牌必须在 sessions 表中且未被强制下线
+		rec, found, err := s.db.GetSessionByTokenHash(sha256Hex(c.Value))
+		if err != nil || !found || rec.Revoked {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "会话已失效（可能已被强制下线）"})
+			return
+		}
+		// 以数据库会话记录的用户名为准（支持修改用户名后会话仍有效）
+		sess.Username = rec.Username
+		h(w, r.WithContext(context.WithValue(r.Context(), sessionKey, sess)))
+	}
+}
+
+// sessionFrom 从请求上下文取出认证中间件写入的会话信息。
+func sessionFrom(r *http.Request) *auth.Session {
+	if v, ok := r.Context().Value(sessionKey).(*auth.Session); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *Server) loggedIn(r *http.Request) bool {
+	c, err := r.Cookie(auth.CookieName)
+	if err != nil {
+		return false
+	}
+	_, ok := auth.ParseToken(c.Value, []byte(s.cfg.JWTSecret))
+	return ok
+}
+
+// logRequests 访问日志中间件：记录方法、路径、状态码与耗时。
+func (s *Server) logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		start := time.Now()
+		next.ServeHTTP(sw, r)
+		s.log.Info("http",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", sw.status,
+			"ms", time.Since(start).Milliseconds(),
+		)
+	})
+}
+
+// statusWriter 包装 ResponseWriter 以捕获响应状态码。
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+// WriteHeader 记录状态码并透传给下层。
+func (sw *statusWriter) WriteHeader(code int) {
+	sw.status = code
+	sw.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack 支持 WebSocket 升级（终端等插件需要）。
+func (sw *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := sw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("hijack not supported")
+	}
+	return h.Hijack()
+}
+
+// ---------- 工具 ----------
+
+// sha256Hex 计算字符串的 SHA-256 十六进制（会话令牌指纹）。
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+// writeJSON 统一输出 JSON 响应（设置 Content-Type + 状态码）。
+func writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(v)
+}
+
+// serveFile 从内嵌资源中读取并输出一个前端页面文件。
+func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, name string) {
+	data, err := fs.ReadFile(embed.Web, "web/"+name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", mimeType(name))
+	w.Write(data)
+}
+
+// mimeType 按扩展名返回 Content-Type（内嵌资源没有系统 MIME 推断）。
+func mimeType(name string) string {
+	switch {
+	case len(name) > 5 && name[len(name)-5:] == ".html":
+		return "text/html; charset=utf-8"
+	case len(name) > 4 && name[len(name)-4:] == ".css":
+		return "text/css; charset=utf-8"
+	case len(name) > 3 && name[len(name)-3:] == ".js":
+		return "application/javascript; charset=utf-8"
+	case len(name) > 5 && name[len(name)-5:] == ".json":
+		return "application/json; charset=utf-8"
+	case len(name) > 4 && name[len(name)-4:] == ".ico":
+		return "image/x-icon"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// ---------- 前端页面路由 ----------
+
+func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	configured, _ := s.db.HasAdmin()
+	p := r.URL.Path
+	switch p {
+	case "/setup", "/setup/":
+		if configured {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		s.serveFile(w, r, "setup.html")
+	case "/login", "/login/":
+		if !configured {
+			http.Redirect(w, r, "/setup", http.StatusFound)
+			return
+		}
+		if s.loggedIn(r) {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		s.serveFile(w, r, "login.html")
+	case "/":
+		if !configured {
+			http.Redirect(w, r, "/setup", http.StatusFound)
+			return
+		}
+		if !s.loggedIn(r) {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		s.serveFile(w, r, "index.html")
+	default:
+		// 静态资源 /css/app.css 等
+		sub, err := fs.Sub(embed.Web, "web")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		http.FileServer(http.FS(sub)).ServeHTTP(w, r)
+	}
+}
