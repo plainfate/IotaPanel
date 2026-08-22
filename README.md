@@ -197,6 +197,8 @@ cd micropanel-0.3.2-darwin-amd64 && bin/panel
 
 ## 插件开发（SDK）
 
+> 📖 **完整保姆级开发文档**（框架原理详解 + 插件开发手把手教程 + 发布流程）见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+
 每个插件 = 一个目录 + `manifest.yaml`：
 
 ```yaml
