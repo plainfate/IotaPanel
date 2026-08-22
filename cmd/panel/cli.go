@@ -247,10 +247,13 @@ func resolveHome() string {
 			return dir
 		}
 	}
-	// 兜底：二进制不在 <安装目录>/bin 布局时，用上次运行留下的标记文件
+	// 兜底：二进制不在 <安装目录>/bin 布局时，用上次运行留下的标记文件。
+	// 只采信看起来是真实面板安装的目录（含 etc/.env），防本地用户伪造标记劫持 root 面板。
 	if data, err := os.ReadFile("/tmp/micropanel-home"); err == nil {
 		if home := strings.TrimSpace(string(data)); home != "" {
-			return home
+			if _, err := os.Stat(filepath.Join(home, "etc", ".env")); err == nil {
+				return home
+			}
 		}
 	}
 	return ""

@@ -39,6 +39,8 @@ import (
 const (
 	readinessTimeout = 6 * time.Second
 	stopGrace        = 3 * time.Second
+	// maxLogBytes 插件日志单文件上限（超限启动时轮转保留一份 .1）
+	maxLogBytes = 20 << 20
 )
 
 // Store 是管理器依赖的持久化接口（由 db.DB 实现）。
@@ -54,6 +56,14 @@ func (rt *Runtime) Port() int { return rt.port }
 // PID 返回插件进程号。
 func (rt *Runtime) PID() int { return rt.pid }
 
+// Bind 返回插件监听地址（网关连接目标；缺省 127.0.0.1）。
+func (rt *Runtime) Bind() string {
+	if rt.bind == "" {
+		return "127.0.0.1"
+	}
+	return rt.bind
+}
+
 // PortMapEntry 对应 port-map.json 中的一条记录。
 type PortMapEntry struct {
 	Port      int    `json:"port"`
@@ -67,6 +77,8 @@ type Runtime struct {
 	cmd       *exec.Cmd
 	port      int
 	pid       int
+	bind      string   // manifest.bind（默认 127.0.0.1），网关连接目标
+	startTick uint64   // unix 下 /proc/<pid>/stat 的启动节拍，防 PID 复用误杀
 	startedAt time.Time
 	adopted   bool // 核心启动时认领的残留进程
 	lastUse   atomic.Int64
@@ -115,11 +127,17 @@ func (m *Manager) Load() {
 	defer m.mu.Unlock()
 	entries := m.readPortMap()
 	for name, e := range entries {
-		if e.Port <= 0 || !isListening("127.0.0.1", e.Port) {
+		// 按插件 manifest 的 bind 探测（支持 0.0.0.0 / 指定 IP 的插件，避免误判失效）
+		bind := "127.0.0.1"
+		if mf, err := LoadManifest(filepath.Join(m.Home, "plugins", name)); err == nil && mf.Bind != "" {
+			bind = mf.Bind
+		}
+		if e.Port <= 0 || !isListening(bind, e.Port) {
 			m.log.Info("drop stale port-map entry", "plugin", name)
 			continue
 		}
-		rt := &Runtime{name: name, port: e.Port, pid: e.PID, startedAt: time.Now(), adopted: true}
+		rt := &Runtime{name: name, port: e.Port, pid: e.PID, bind: bind, startedAt: time.Now(), adopted: true}
+		rt.startTick, _ = procStartTick(e.PID)
 		rt.lastUse.Store(time.Now().UnixNano())
 		m.runtimes[name] = rt
 		m.log.Info("adopted running plugin", "plugin", name, "port", e.Port, "pid", e.PID)
@@ -141,13 +159,13 @@ func (m *Manager) Start(name string) (*Runtime, error) {
 		m.mu.Unlock()
 		return nil, fmt.Errorf("插件未安装: %s", name)
 	}
-	port, err := m.allocPortLocked()
+	pluginDir := filepath.Join(m.Home, "plugins", name)
+	mf, err := LoadManifest(pluginDir)
 	if err != nil {
 		m.mu.Unlock()
 		return nil, err
 	}
-	pluginDir := filepath.Join(m.Home, "plugins", name)
-	mf, err := LoadManifest(pluginDir)
+	port, err := m.allocPortLocked(mf.Bind)
 	if err != nil {
 		m.mu.Unlock()
 		return nil, err
@@ -159,6 +177,7 @@ func (m *Manager) Start(name string) (*Runtime, error) {
 	}
 	logPath := filepath.Join(m.Home, "logs", "plugins", name+".log")
 	os.MkdirAll(filepath.Dir(logPath), 0o755)
+	rotateLog(logPath, maxLogBytes)
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		m.mu.Unlock()
@@ -185,7 +204,8 @@ func (m *Manager) Start(name string) (*Runtime, error) {
 	}
 	fmt.Fprintf(logFile, "\n=== [%s] start, port=%d, pid=%d, %s ===\n",
 		name, port, cmd.Process.Pid, time.Now().Format(time.RFC3339))
-	rt := &Runtime{name: name, cmd: cmd, port: port, pid: cmd.Process.Pid, startedAt: time.Now()}
+	rt := &Runtime{name: name, cmd: cmd, port: port, pid: cmd.Process.Pid, bind: mf.Bind, startedAt: time.Now()}
+	rt.startTick, _ = procStartTick(rt.pid)
 	rt.lastUse.Store(time.Now().UnixNano())
 	m.runtimes[name] = rt
 	m.savePortMapLocked()
@@ -199,13 +219,28 @@ func (m *Manager) Start(name string) (*Runtime, error) {
 			m.savePortMapLocked()
 		}
 		m.mu.Unlock()
-		cmd.Process.Kill()
-		cmd.Wait()
+		killProc(rt)
+		_ = cmd.Wait()
 		tail, _ := tailLog(logPath, 20)
 		return nil, fmt.Errorf("插件启动超时（%v）：%s", readinessTimeout, strings.TrimSpace(tail))
 	}
 
-	go func() { cmd.Wait() }() // 回收僵尸进程
+	// 进程退出时立刻清理运行条目：防止死进程残留（网关持续 502），
+	// 也避免空闲计时器对已死进程触发 killProc 而误伤被复用 PID 的无辜进程。
+	go func() {
+		_ = cmd.Wait()
+		m.mu.Lock()
+		if cur, ok := m.runtimes[name]; ok && cur == rt {
+			delete(m.runtimes, name)
+			if cur.timer != nil {
+				cur.timer.Stop()
+			}
+			m.savePortMapLocked()
+		}
+		m.mu.Unlock()
+		m.log.Info("plugin process exited, entry cleaned", "plugin", name, "pid", rt.pid)
+	}()
+
 	m.mu.Lock()
 	if !m.store.IsKeepalive(name) {
 		m.armIdleLocked(rt)
@@ -337,7 +372,11 @@ func (m *Manager) armIdleLocked(rt *Runtime) {
 }
 
 // allocPortLocked 在端口池中寻找未被本管理器与系统占用的端口。
-func (m *Manager) allocPortLocked() (int, error) {
+// bind 用于探测：插件监听 0.0.0.0 / 指定 IP 时也检查对应地址，避免端口冲突。
+func (m *Manager) allocPortLocked(bind string) (int, error) {
+	if bind == "" {
+		bind = "127.0.0.1"
+	}
 	for p := m.PortLo; p <= m.PortHi; p++ {
 		inUse := false
 		for _, rt := range m.runtimes {
@@ -346,7 +385,7 @@ func (m *Manager) allocPortLocked() (int, error) {
 				break
 			}
 		}
-		if inUse || isListening("127.0.0.1", p) {
+		if inUse || isListening("127.0.0.1", p) || (bind != "127.0.0.1" && isListening(bind, p)) {
 			continue
 		}
 		return p, nil
@@ -411,6 +450,7 @@ func isListening(host string, port int) bool {
 }
 
 // killProc 向插件进程发送 SIGTERM，最多等待 3 秒后 SIGKILL。
+// 发送前校验进程启动时间：PID 已被系统回收复用时绝不向无关进程发信号。
 // 使用 os.FindProcess + Signal（跨平台，Windows 亦可编译运行）。
 func killProc(rt *Runtime) {
 	if rt.pid <= 0 {
@@ -420,14 +460,29 @@ func killProc(rt *Runtime) {
 	if err != nil {
 		return
 	}
+	if !sameProcess(rt) {
+		return // 原进程已不存在 / PID 被复用
+	}
 	_ = proc.Signal(syscall.SIGTERM)
 	for i := 0; i < 30; i++ { // 最多等 3 秒优雅退出
 		time.Sleep(100 * time.Millisecond)
-		if !processAlive(rt.pid) {
-			return // 进程已退出
+		if !sameProcess(rt) {
+			return // 原进程已退出（或 PID 被复用），不再处理
 		}
 	}
 	_ = proc.Signal(syscall.SIGKILL)
+}
+
+// sameProcess 确认 PID 仍是 Runtime 当初拉起的那个进程：
+// 优先比较 /proc 启动节拍（unix）；无法获取时退化为存活探测。
+func sameProcess(rt *Runtime) bool {
+	if rt.startTick > 0 {
+		if tick, ok := procStartTick(rt.pid); !ok || tick != rt.startTick {
+			return false
+		}
+		return true
+	}
+	return processAlive(rt.pid)
 }
 
 // tailLog 读取日志文件最后 n 行（启动失败诊断用）。
@@ -441,4 +496,12 @@ func tailLog(path string, n int) (string, error) {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n"), nil
+}
+
+// rotateLog 简单轮转：文件超过 maxBytes 时把当前文件改名为 .1（覆盖旧的 .1）。
+// 在每次打开日志前调用，防止日志无限增长。
+func rotateLog(path string, maxBytes int64) {
+	if fi, err := os.Stat(path); err == nil && fi.Size() > maxBytes {
+		_ = os.Rename(path, path+".1")
+	}
 }

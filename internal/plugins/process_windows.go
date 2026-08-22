@@ -22,3 +22,7 @@ package plugins
 // processAlive 判断进程是否存活。
 // Windows 无 kill(pid,0)，这里始终返回 true：等满优雅退出窗口后由 SIGKILL 兜底。
 func processAlive(pid int) bool { return true }
+
+// procStartTick Windows 上无法轻量读取进程启动时间，返回 unknown。
+// killProc 将退化为仅按存活状态处理（Windows 上 3 秒窗口内 PID 复用的概率很低）。
+func procStartTick(pid int) (uint64, bool) { return 0, false }

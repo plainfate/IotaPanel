@@ -44,6 +44,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 )
 
 //go:embed web
@@ -76,7 +77,7 @@ func main() {
 	mux.HandleFunc("GET /api/disks", handleDisks)       // 挂载磁盘列表（外接硬盘等）
 
 	addr := bind + ":" + port
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 
 	// 优雅退出：收到 SIGTERM（面板停止/空闲退出）时关闭 HTTP 服务
 	go func() {

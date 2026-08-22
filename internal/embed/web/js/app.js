@@ -420,10 +420,10 @@ async function renderOverview() {
     list.forEach(p => {
       const row = document.createElement('div');
       row.className = 'kv';
-      const firstMenu = p.menus && p.menus.length ? (p.menus[0].icon || '🧩') + ' ' + p.title : '🧩 ' + p.title;
+      const firstMenu = p.menus && p.menus.length ? esc((p.menus[0].icon || '🧩') + ' ' + p.title) : esc('🧩 ' + p.title);
       const run = p.status.running;
       row.innerHTML = `
-        <span class="k">${firstMenu} <span class="muted">(${p.name})</span></span>
+        <span class="k">${firstMenu} <span class="muted">(${esc(p.name)})</span></span>
         <span>${run ? '<span class="badge badge-ok">' + t('running') + '</span>' : '<span class="badge">' + t('stopped') + '</span>'}
         ${p.menus && p.menus.length ? `<button class="btn btn-ghost btn-sm" data-open="${esc(p.name)}">${t('open')}</button>` : ''}
         <button class="btn btn-ghost btn-sm" data-manage="${esc(p.name)}">${t('manage')}</button></span>`;
@@ -458,7 +458,7 @@ async function renderPlugins() {
       const row = document.createElement('div');
       row.className = 'kv';
       row.innerHTML = `
-        <span class="k">${p.title} <span class="muted">v${p.version} · ${p.name}</span></span>
+        <span class="k">${esc(p.title)} <span class="muted">v${esc(p.version)} · ${esc(p.name)}</span></span>
         <span>${p.status.running ? '<span class="badge badge-ok">' + t('running') + '</span>' : '<span class="badge">' + t('stopped') + '</span>'}
         ${p.keepalive ? '<span class="badge badge-ok">' + t('keepalive') + '</span>' : ''}
         <button class="btn btn-ghost btn-sm" data-manage="${esc(p.name)}">${t('manage')}</button></span>`;
@@ -477,7 +477,7 @@ async function renderSettings() {
   try {
     const d = await api('/api/settings');
     $('#idle-min').value = d.idle_timeout_minutes;
-    $('#port-pool').textContent = '19000 - 19999';
+    $('#port-pool').textContent = d.port_pool || '19000 - 19999';
     // 主题选择器
     const picker = $('#theme-picker');
     picker.innerHTML = '';

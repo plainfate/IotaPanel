@@ -92,10 +92,17 @@ func Open(home string) (*DB, error) {
 	d := &DB{path: path, data: &storeData{Settings: map[string]string{}}}
 	if data, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(data, d.data); err != nil {
-			return nil, fmt.Errorf("解析 panel.json 失败: %w", err)
+			// 主文件存在但损坏：回退到上一份备份（与注释一致）
+			if bak, berr := os.ReadFile(path + ".bak"); berr == nil {
+				if uerr := json.Unmarshal(bak, d.data); uerr != nil {
+					return nil, fmt.Errorf("解析 panel.json 失败: %w", err)
+				}
+			} else {
+				return nil, fmt.Errorf("解析 panel.json 失败: %w", err)
+			}
 		}
-	} else if data, err := os.ReadFile(path + ".bak"); err == nil {
-		// 主文件缺失/损坏时回退到上一份备份
+	} else if data, err := os.ReadFile(path+".bak"); err == nil {
+		// 主文件缺失：回退到上一份备份
 		if err := json.Unmarshal(data, d.data); err != nil {
 			return nil, fmt.Errorf("解析 panel.json.bak 失败: %w", err)
 		}
@@ -363,6 +370,20 @@ func (d *DB) RevokeSessionByJTI(jti string) error {
 	defer d.mu.Unlock()
 	for i := range d.data.Sessions {
 		if d.data.Sessions[i].JTI == jti {
+			d.data.Sessions[i].Revoked = true
+			return d.save()
+		}
+	}
+	return nil
+}
+
+// RevokeSessionByTokenHash 按令牌 SHA-256 指纹吊销会话（logout 用：
+// 无需校验签名，只要 cookie 值还在就能吊销对应服务端记录）。
+func (d *DB) RevokeSessionByTokenHash(hash string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for i := range d.data.Sessions {
+		if d.data.Sessions[i].TokenHash == hash && !d.data.Sessions[i].Revoked {
 			d.data.Sessions[i].Revoked = true
 			return d.save()
 		}

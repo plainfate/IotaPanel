@@ -13,6 +13,8 @@
 - **原生 UI 融合**：安装插件后自动向侧边栏注入菜单，页面经反向代理嵌入主内容区，地址栏不跳转。
 - **插件自由**：从 URL / GitHub Release 安装插件包（可选 SHA256 校验），或手动放入插件目录即装即用。
 
+> 资源占用、冷启动耗时等数据为 **linux/arm64 · Go 1.27 实测值**，不同平台/Go 版本会略有差异，仅供参考。
+
 ---
 
 ## 快速开始
@@ -44,24 +46,24 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 
 **第 1 步：下载对应架构的安装包**
 下面以 Linux ARM64 为例。其他平台把文件名换成：
-- Linux x86_64 → `micropanel-0.3.0-linux-amd64.tar.gz`
-- Windows → `micropanel-0.3.0-windows-amd64.tar.gz`
-- macOS → `micropanel-0.3.0-darwin-amd64.tar.gz`
+- Linux x86_64 → `micropanel-0.3.1-linux-amd64.tar.gz`
+- Windows → `micropanel-0.3.1-windows-amd64.tar.gz`
+- macOS → `micropanel-0.3.1-darwin-amd64.tar.gz`
 
 ```bash
-curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz
+curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.1/micropanel-0.3.1-linux-arm64.tar.gz
 ```
 
 **第 2 步：解压**
 
 ```bash
-tar xzf micropanel-0.3.0-linux-arm64.tar.gz
+tar xzf micropanel-0.3.1-linux-arm64.tar.gz
 ```
 
 **第 3 步：进入解压目录**
 
 ```bash
-cd micropanel-0.3.0-linux-arm64
+cd micropanel-0.3.1-linux-arm64
 ```
 
 **第 4 步：运行安装脚本**（默认装到 /data/panel 并注册 systemd 自动启动）
@@ -78,22 +80,22 @@ bash install.sh --no-systemd             # 只部署，不注册 systemd
 Linux（两种架构任选其一）：
 
 ```bash
-bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-arm64.tar.gz   # ARM64
-bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-linux-amd64.tar.gz   # x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.1/micropanel-0.3.1-linux-arm64.tar.gz   # ARM64
+bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.1/micropanel-0.3.1-linux-amd64.tar.gz   # x86_64
 ```
 
 Windows / macOS 包内**没有 install.sh**，需手动解压后直接运行：
 
 ```bash
 # Windows x64
-curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-windows-amd64.tar.gz
-tar xzf micropanel-0.3.0-windows-amd64.tar.gz   # 或右键「全部解压」
-cd micropanel-0.3.0-windows-amd64 && bin\panel.exe
+curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.1/micropanel-0.3.1-windows-amd64.tar.gz
+tar xzf micropanel-0.3.1-windows-amd64.tar.gz   # 或右键「全部解压」
+cd micropanel-0.3.1-windows-amd64 && bin\panel.exe
 
 # macOS x64
-curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.0/micropanel-0.3.0-darwin-amd64.tar.gz
-tar xzf micropanel-0.3.0-darwin-amd64.tar.gz
-cd micropanel-0.3.0-darwin-amd64 && bin/panel
+curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.1/micropanel-0.3.1-darwin-amd64.tar.gz
+tar xzf micropanel-0.3.1-darwin-amd64.tar.gz
+cd micropanel-0.3.1-darwin-amd64 && bin/panel
 ```
 
 #### 方式三：本地构建后安装（仅开发者/内测）
@@ -110,7 +112,7 @@ cd micropanel-0.3.0-darwin-amd64 && bin/panel
 ```bash
 ./package.sh                              # 打包全部平台: linux-amd64 linux-arm64 windows-amd64 darwin-amd64
 ./package.sh --targets linux-amd64,linux-arm64   # 只打指定平台
-./package.sh --version 0.3.0              # 自定义版本号
+./package.sh --version 0.3.1              # 自定义版本号
 ```
 
 产物（`dist/`，附 `.sha256`）：
@@ -222,6 +224,8 @@ menus:                   # 注入侧边栏的菜单（可多个）
 
 > **安全默认**：插件默认只监听 `127.0.0.1`——外部流量只能走面板网关（`/p/<插件名>/*`），插件不直接暴露。
 > 若插件需要对外直连（如邮件服务的 SMTP 端口、Webhook 回调），在 manifest 中把 `bind` 改为 `0.0.0.0` 或具体网卡 IP 即可。
+>
+> ⚠️ **安全提醒**：面板以 root 运行，插件拥有与面板相同的权限（进程隔离 ≠ 安全沙箱）——**只安装你信任的插件**；从 URL 安装时请填写 SHA256 校验值，并核对插件包内容。
 
 ### 第三方插件分发（拷贝即安装）
 

@@ -223,6 +223,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	s.guard.reset(req.Username)
 
+	// 旧格式哈希（低迭代次数）登录成功后自动升级到当前参数，用户无感知
+	if auth.NeedsRehash(u.Salt) {
+		if salt2, hash2, err := auth.HashPassword(req.Password); err == nil {
+			_ = s.db.UpdatePassword(u.Username, hash2, salt2)
+			s.log.Info("password hash upgraded", "username", u.Username)
+		}
+	}
+
 	// 会话有效期：普通登录 24h；记住我 30 天
 	ttl := 24 * time.Hour
 	if req.Remember {
@@ -249,9 +257,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 普通登录 = 会话级 cookie（关浏览器失效）；记住我 = 30 天持久 cookie
+	// 经 TLS 或 TLS 反向代理访问时标记 Secure（明文 HTTP 下不设置，避免登录失效）
+	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 	cookie := &http.Cookie{
 		Name: auth.CookieName, Value: token,
-		Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure,
 	}
 	if req.Remember {
 		cookie.MaxAge = 30 * 24 * 3600
@@ -260,10 +270,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "username": u.Username, "remember": req.Remember})
 }
 
-// handleLogout 清除 cookie 并吊销当前会话（强制下线自身）。
+// handleLogout 清除 cookie 并吊销服务端会话记录。
+// 不依赖认证中间件：即使会话已过期或签名失效，只要 cookie 值还在，
+// 也能按令牌指纹吊销对应的服务端记录（否则"退出登录"只是摆设）。
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if sess := sessionFrom(r); sess != nil {
-		_ = s.db.RevokeSessionByJTI(sess.JTI)
+	if c, err := r.Cookie(auth.CookieName); err == nil && c.Value != "" {
+		_ = s.db.RevokeSessionByTokenHash(sha256Hex(c.Value))
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: auth.CookieName, Value: "", Path: "/", HttpOnly: true, MaxAge: -1,
@@ -478,6 +490,7 @@ func (s *Server) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 		"idle_timeout_minutes": idleMin,
 		"theme":                theme,
 		"lang":                 lang,
+		"port_pool":            fmt.Sprintf("%d - %d", s.cfg.PortLo, s.cfg.PortHi),
 		"port_map":             portMap,
 	})
 }

@@ -55,14 +55,26 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	g.mgr.Touch(name)
 
-	target, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", rt.Port()))
+	// 按插件 manifest.bind 连接（支持 0.0.0.0 / 指定网卡 IP 的插件）
+	target, _ := url.Parse(fmt.Sprintf("http://%s:%d", rt.Bind(), rt.Port()))
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	origHost := r.Host
+	// 协议透传：优先沿用入站 X-Forwarded-Proto（TLS 反代场景），否则按连接推断
+	proto := r.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		if r.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
 	director := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		director(req)
 		req.URL.Path = pluginPath
 		req.Host = target.Host
-		req.Header.Set("X-Forwarded-Proto", "http")
+		req.Header.Set("X-Forwarded-Proto", proto)
+		req.Header.Set("X-Forwarded-Host", origHost)
 		req.Header.Set("X-Panel-Plugin", name)
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {

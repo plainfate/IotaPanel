@@ -112,15 +112,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 核心日志同时写入 logs/panel.log（规格书目录结构）
+	// 核心日志同时写入 logs/panel.log（规格书目录结构）；启动时若超 20MB 则轮转保留一份 .1
 	logDir := filepath.Join(cfg.Home, "logs")
 	os.MkdirAll(logDir, 0o755)
+	if fi, err := os.Stat(filepath.Join(logDir, "panel.log")); err == nil && fi.Size() > 20<<20 {
+		_ = os.Rename(filepath.Join(logDir, "panel.log"), filepath.Join(logDir, "panel.log.1"))
+	}
 	if f, err := os.OpenFile(filepath.Join(logDir, "panel.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
 		logger = slog.New(slog.NewTextHandler(io.MultiWriter(os.Stderr, f), &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
 
 	// 记录安装目录标记：非 systemd 环境下 `panel start` 用它恢复 PANEL_HOME
-	_ = os.WriteFile("/tmp/micropanel-home", []byte(cfg.Home+"\n"), 0o644)
+	// 0600 + 读取端校验 etc/.env，降低本地伪造标记的风险
+	_ = os.WriteFile("/tmp/micropanel-home", []byte(cfg.Home+"\n"), 0o600)
 
 	database, err := db.Open(cfg.Home)
 	if err != nil {
@@ -147,6 +151,7 @@ func main() {
 		Addr:              cfg.ListenAddr,
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       60 * time.Second, // 防空闲连接占用；不设读写超时（插件流式响应/WS 需要长连接）
 	}
 
 	go func() {

@@ -24,5 +24,8 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Test
+        run: go test ./...
+
       - name: Show artifact
         run: ls -lh bin/panel && ./bin/panel version

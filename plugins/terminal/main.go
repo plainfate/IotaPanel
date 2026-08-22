@@ -28,11 +28,13 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
@@ -44,8 +46,27 @@ var webFS embed.FS
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
-	// 终端页面经面板网关 iframe 嵌入，Origin 与面板同源，直接放行
-	CheckOrigin: func(r *http.Request) bool { return true },
+	// 终端页面经面板网关 iframe 嵌入，Origin 必须与面板同源；
+	// 无 Origin（非浏览器客户端）放行。防止插件暴露 0.0.0.0 时被任意网站裸连（CSWSH）。
+	CheckOrigin: checkOrigin,
+}
+
+// checkOrigin 校验 WebSocket 握手来源：Origin 的 host:port 必须等于
+// 面板（X-Forwarded-Host，网关注入）或本机 Host。
+func checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true // 非浏览器客户端
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	host := r.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = r.Host
+	}
+	return strings.EqualFold(u.Host, host)
 }
 
 func main() {
@@ -59,7 +80,7 @@ func main() {
 	mux.HandleFunc("GET /ws", handleWS)
 
 	addr := bind + ":" + port
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)

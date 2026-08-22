@@ -65,6 +65,13 @@
 /* ---------- 工具函数 ---------- */
 const $ = (id) => document.getElementById(id);
 
+// HTML 转义：所有来自插件元信息/商城的动态文本必须先经过 esc() 再进 innerHTML
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function show(id) {
   ['step-admin', 'step-plugins', 'step-progress'].forEach(x => $(x).classList.add('hidden'));
   $(id).classList.remove('hidden');
@@ -88,10 +95,10 @@ $('btn-next').addEventListener('click', async () => {
       const div = document.createElement('label');
       div.className = 'check-item';
       div.innerHTML = `
-        <input type="checkbox" value="${item.name}" checked>
+        <input type="checkbox" value="${esc(item.name)}" checked>
         <div>
-          <div class="ci-title">${item.title} <span class="badge">v${item.version}</span></div>
-          <div class="ci-desc">${item.description || ''} · ${item.language || ''}</div>
+          <div class="ci-title">${esc(item.title)} <span class="badge">v${esc(item.version)}</span></div>
+          <div class="ci-desc">${esc(item.description || '')} · ${esc(item.language || '')}</div>
         </div>`;
       list.appendChild(div);
     });

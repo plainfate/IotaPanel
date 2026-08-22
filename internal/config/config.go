@@ -31,7 +31,7 @@ import (
 )
 
 // Version 面板核心版本号（可用 ldflags 覆盖）。
-const Version = "0.3.0"
+const Version = "0.3.1"
 
 type Config struct {
 	Home        string        // PANEL_HOME 安装目录（用户自定义，不强制 /opt）

@@ -29,6 +29,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"micropanel/internal/auth"
@@ -101,7 +103,39 @@ func (s *Server) Handler() http.Handler {
 	// 插件网关：/p/<插件名>/* 支持任意方法（GET 页面、POST 插件 API 等），需登录
 	mux.Handle("/p/", s.auth(http.HandlerFunc(s.gw.ServeHTTP)))
 	mux.HandleFunc("/", s.handleUI)
-	return s.logRequests(mux)
+	// 顺序：CSRF 校验（最外层）→ 访问日志 → 路由
+	return s.logRequests(s.csrfCheck(mux))
+}
+
+// csrfCheck 对状态变更请求（POST/PUT/DELETE/PATCH）校验 Origin，
+// 作为 SameSite=Lax 之外的纵深防御：Origin 缺失（非浏览器客户端如 curl）放行，
+// 存在但与面板 Host 不同源则拒绝，阻断跨站请求伪造。
+func (s *Server) csrfCheck(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch:
+			origin := r.Header.Get("Origin")
+			if origin != "" && !sameOrigin(origin, r) {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "跨站请求被拒绝"})
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// sameOrigin 判断 Origin 头与请求目标是否同源（比较 host:port，忽略协议）。
+// 反向代理部署时优先取 X-Forwarded-Host（浏览器 Origin 是公网地址）。
+func sameOrigin(origin string, r *http.Request) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	host := r.Host
+	if xh := r.Header.Get("X-Forwarded-Host"); xh != "" {
+		host = xh
+	}
+	return strings.EqualFold(u.Host, host)
 }
 
 // ---------- 中间件 ----------
@@ -181,6 +215,13 @@ func (sw *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 		return nil, nil, errors.New("hijack not supported")
 	}
 	return h.Hijack()
+}
+
+// Flush 透传流式刷新（插件走网关的 SSE/长轮询响应需要）。
+func (sw *statusWriter) Flush() {
+	if f, ok := sw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // ---------- 工具 ----------

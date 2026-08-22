@@ -32,6 +32,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 //go:embed web
@@ -49,7 +50,7 @@ func main() {
 	mux.HandleFunc("GET /api/info", handleInfo) // 展示面板注入的环境变量
 
 	addr := bind + ":" + port
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)

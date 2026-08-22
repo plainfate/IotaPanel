@@ -27,43 +27,73 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"hash"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	iterations = 100_000
-	keyLen     = 32
-	saltLen    = 16
-	CookieName = "mp_session"
-	sessionTTL = 24 * time.Hour
+	// iterations 为 PBKDF2-SHA256 迭代次数（OWASP 2023 建议 ≥ 60 万次）。
+	iterations = 600_000
+	// legacyIterations 兼容旧版 10 万次迭代存储的哈希（登录成功后自动升级）。
+	legacyIterations = 100_000
+	keyLen           = 32
+	saltLen          = 16
+	CookieName       = "mp_session"
+	sessionTTL       = 24 * time.Hour
 )
 
-// HashPassword 生成 salt 与 PBKDF2 哈希（均为 hex 字符串）。
-func HashPassword(pw string) (saltHex, hashHex string, err error) {
-	salt := make([]byte, saltLen)
-	if _, err = rand.Read(salt); err != nil {
+// HashPassword 生成 salt（格式 "iterations:hex"，带迭代次数便于未来调整）与 PBKDF2 哈希。
+func HashPassword(pw string) (salt, hashHex string, err error) {
+	saltBytes := make([]byte, saltLen)
+	if _, err = rand.Read(saltBytes); err != nil {
 		return "", "", err
 	}
 	// Go 1.25+ 的 pbkdf2.Key：签名变为 Key(h func() Hash, password string, salt, iter, keyLen) ([]byte, error)
-	dk, err := pbkdf2.Key(sha256.New, pw, salt, iterations, keyLen)
+	dk, err := pbkdf2.Key(sha256.New, pw, saltBytes, iterations, keyLen)
 	if err != nil {
 		return "", "", err
 	}
-	return hex.EncodeToString(salt), hex.EncodeToString(dk), nil
+	return fmt.Sprintf("%d:%s", iterations, hex.EncodeToString(saltBytes)), hex.EncodeToString(dk), nil
 }
 
-func VerifyPassword(pw, saltHex, hashHex string) bool {
-	salt, err := hex.DecodeString(saltHex)
+// parseSalt 解析盐：支持 "iterations:hex" 新格式与旧版纯 hex 格式（按 10 万次处理）。
+func parseSalt(s string) (iter int, salt []byte, ok bool) {
+	if i := strings.IndexByte(s, ':'); i > 0 {
+		if n, err := strconv.Atoi(s[:i]); err == nil && n > 0 {
+			b, err := hex.DecodeString(s[i+1:])
+			if err != nil {
+				return 0, nil, false
+			}
+			return n, b, true
+		}
+	}
+	b, err := hex.DecodeString(s)
 	if err != nil {
+		return 0, nil, false
+	}
+	return legacyIterations, b, true
+}
+
+func VerifyPassword(pw, salt, hashHex string) bool {
+	iter, saltBytes, ok := parseSalt(salt)
+	if !ok {
 		return false
 	}
-	dk, err := pbkdf2.Key(sha256.New, pw, salt, iterations, keyLen)
+	dk, err := pbkdf2.Key(sha256.New, pw, saltBytes, iter, keyLen)
 	if err != nil {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(hex.EncodeToString(dk)), []byte(hashHex)) == 1
+}
+
+// NeedsRehash 判断存储的盐是否为旧格式（迭代次数与当前不一致）。
+// 登录验证成功后调用，命中则用新参数重新哈希并写回。
+func NeedsRehash(salt string) bool {
+	iter, _, ok := parseSalt(salt)
+	return ok && iter != iterations
 }
 
 // Session 是登录态载荷。

@@ -153,6 +153,7 @@ func unpackPluginPackage(data []byte) (string, map[string][]byte, error) {
 	}
 	files := map[string]entry{}
 	topDir := ""
+	total := 0 // 解压后总字节数（防 gzip 炸弹：单文件 64MB 封顶 + 总量 256MB 封顶）
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -179,6 +180,10 @@ func unpackPluginPackage(data []byte) (string, map[string][]byte, error) {
 			content, err := io.ReadAll(io.LimitReader(tr, maxRemotePluginSize))
 			if err != nil {
 				return "", nil, err
+			}
+			total += len(content)
+			if total > maxRemotePluginSize*4 {
+				return "", nil, fmt.Errorf("插件包解压后总大小超过上限（%d MB）", maxRemotePluginSize*4>>20)
 			}
 			files[parts[1]] = entry{content: content, mode: hdr.Mode}
 		}

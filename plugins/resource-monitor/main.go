@@ -63,7 +63,7 @@ func main() {
 	mux.HandleFunc("GET /api/stats", handleStats) // 统计数据 JSON
 
 	addr := bind + ":" + port
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
