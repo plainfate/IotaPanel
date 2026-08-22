@@ -9,3 +9,8 @@ language: go
 command: bin/https-front
 bind: 127.0.0.1
 keepalive: true
+menus:
+  - title: HTTPS 网关
+    icon: 🔒
+    path: /
+    section: tools

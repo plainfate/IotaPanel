@@ -18,11 +18,14 @@
 // HTTPS 网关插件：在面板前面终结 TLS（自签 / 已有证书 / Let's Encrypt ACME），
 // 把流量反代回面板的 HTTP 端口，让面板无需内置 TLS 即可获得 HTTPS 访问。
 //
+// 通过面板侧边栏「HTTPS 网关」菜单进入配置页（插件端口 /p/https-front/），
+// 保存配置后插件自动重启生效；TLS 启动失败时进程保持存活，方便改配置。
+//
 // 使用前提（写入 <安装目录>/etc/.env）：
 //   LISTEN_ADDR=127.0.0.1:8787   # 面板只监听本机，本插件作为唯一对外入口
 //   PANEL_TRUST_PROXY=1          # 信任本插件的 X-Forwarded-*（Secure cookie/HSTS/CSRF）
 //
-// 配置：<安装目录>/etc/https-front/config.yaml（首次运行自动生成默认配置）
+// 配置：<安装目录>/etc/https-front/config.yaml（配置页保存后由插件自动写回）
 // 参考实现：Caddy / golang.org/x/crypto/acme/autocert 的 ACME 处理方式。
 package main
 
@@ -32,8 +35,10 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"embed"
+	"encoding/json"
 	"encoding/pem"
-	"fmt"
+	"errors"
 	"log"
 	"math/big"
 	"net/http"
@@ -50,19 +55,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+//go:embed web
+var webFS embed.FS
+
 // Config 插件配置（$PANEL_HOME/etc/https-front/config.yaml）。
 type Config struct {
-	PanelAddr    string `yaml:"panel_addr"`     // 面板 HTTP 地址
-	Listen       string `yaml:"listen"`         // 对外 HTTPS 监听，如 ":443" / ":8443"
-	Mode         string `yaml:"mode"`           // selfsigned | cert | acme
-	CertFile     string `yaml:"cert_file"`      // mode=cert 时：证书链
-	KeyFile      string `yaml:"key_file"`       // mode=cert 时：私钥
-	Domain       string `yaml:"domain"`         // mode=acme 时：域名（可逗号分隔多个）
-	Email        string `yaml:"email"`          // mode=acme 时：联系邮箱（续期提醒）
-	ACMEHTTPAddr string `yaml:"acme_http_addr"` // mode=acme 时：HTTP-01 挑战监听（默认 :80）
+	PanelAddr    string `yaml:"panel_addr" json:"panel_addr"`       // 面板 HTTP 地址
+	Listen       string `yaml:"listen" json:"listen"`               // 对外 HTTPS 监听，如 ":443" / ":8443"
+	Mode         string `yaml:"mode" json:"mode"`                   // selfsigned | cert | acme
+	CertFile     string `yaml:"cert_file" json:"cert_file"`         // mode=cert 时：证书链
+	KeyFile      string `yaml:"key_file" json:"key_file"`           // mode=cert 时：私钥
+	Domain       string `yaml:"domain" json:"domain"`               // mode=acme 时：域名（可逗号分隔多个）
+	Email        string `yaml:"email" json:"email"`                 // mode=acme 时：联系邮箱（续期提醒）
+	ACMEHTTPAddr string `yaml:"acme_http_addr" json:"acme_http_addr"` // mode=acme 时：HTTP-01 挑战监听（默认 :80）
 }
 
-const defaultConfigYAML = `# HTTPS 网关插件配置（修改后重启插件生效）
+const defaultConfigYAML = `# HTTPS 网关插件配置（配置页保存后自动重写本文件）
 # 面板需设为仅本机监听并开启受信反代模式（etc/.env）：
 #   LISTEN_ADDR=127.0.0.1:8787
 #   PANEL_TRUST_PROXY=1
@@ -92,72 +100,137 @@ func main() {
 	if data, err := os.ReadFile(cfgPath); err == nil {
 		_ = yaml.Unmarshal(data, cfg)
 	} else if err := os.WriteFile(cfgPath, []byte(defaultConfigYAML), 0o600); err == nil {
-		log.Printf("已生成默认配置: %s（请按需修改后重启插件）", cfgPath)
+		log.Printf("已生成默认配置: %s", cfgPath)
 	}
 	normalize(cfg)
 
-	// ① 状态页服务：监听面板分配的 PLUGIN_PORT（满足面板端口就绪探测；仅返回状态，绝不反代，防环路）
+	// ① 配置服务：监听面板分配的 PLUGIN_PORT（满足面板端口就绪探测），
+	//    只提供配置页/API，绝不反代（防止 /p/https-front/ 网关环路）。
 	port := os.Getenv("PLUGIN_PORT")
 	if port == "" {
 		port = "19005"
 	}
 	bind := envOr("PLUGIN_BIND", "127.0.0.1")
-	statusSrv := &http.Server{Addr: bind + ":" + port, Handler: statusHandler(dir), ReadHeaderTimeout: 10 * time.Second}
+	statusSrv := &http.Server{Addr: bind + ":" + port, Handler: configHandler(dir, cfgPath), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
-		log.Printf("[https-front] status 端口就绪: %s", statusSrv.Addr)
+		log.Printf("[https-front] 配置服务就绪: %s（面板侧边栏「HTTPS 网关」可配置）", statusSrv.Addr)
 		if err := statusSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
+			log.Printf("[https-front] 配置服务异常: %v", err)
 		}
 	}()
 
-	// ② TLS 反代服务
-	proxy := buildProxy(cfg)
-	tlsSrv := &http.Server{Addr: cfg.Listen, Handler: proxy, ReadHeaderTimeout: 10 * time.Second}
-	httpError := make(chan error, 1)
+	// ② TLS 反代服务：启动失败只记日志不退出（保持配置页可修复）
+	tlsSrv := &http.Server{Addr: cfg.Listen, Handler: buildProxy(cfg), ReadHeaderTimeout: 10 * time.Second}
 	switch cfg.Mode {
 	case "acme":
-		domains := strings.Split(cfg.Domain, ",")
-		for i := range domains {
-			domains[i] = strings.TrimSpace(domains[i])
-		}
+		domains := splitDomains(cfg.Domain)
 		mgr := &autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
 			HostPolicy: autocert.HostWhitelist(domains...),
 			Cache:      autocert.DirCache(filepath.Join(dir, "acme-cache")),
 			Email:      cfg.Email,
 		}
-		// HTTP-01 挑战 + 自动跳转 HTTPS
-		go func() {
+		go func() { // HTTP-01 挑战 + 自动跳转 HTTPS
 			ch := &http.Server{Addr: cfg.ACMEHTTPAddr, Handler: mgr.HTTPHandler(nil), ReadHeaderTimeout: 10 * time.Second}
 			log.Printf("[https-front] ACME 挑战监听: %s", ch.Addr)
-			httpError <- ch.ListenAndServe()
+			if err := ch.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Printf("[https-front] ACME 挑战服务异常: %v", err)
+			}
 		}()
 		tlsSrv.TLSConfig = mgr.TLSConfig()
 		log.Printf("[https-front] ACME 模式: 域名 %v，自动申请/续期 Let's Encrypt", domains)
-		go func() { httpError <- tlsSrv.ListenAndServeTLS("", "") }()
+		go func() {
+			if err := tlsSrv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Printf("[https-front] TLS 服务异常: %v（配置可能有误，可在配置页修改）", err)
+			}
+		}()
 	case "cert":
 		log.Printf("[https-front] 证书模式: %s", cfg.CertFile)
-		go func() { httpError <- tlsSrv.ListenAndServeTLS(cfg.CertFile, cfg.KeyFile) }()
+		go func() {
+			if err := tlsSrv.ListenAndServeTLS(cfg.CertFile, cfg.KeyFile); err != nil && err != http.ErrServerClosed {
+				log.Printf("[https-front] TLS 服务异常: %v（证书路径可能无效，可在配置页修改）", err)
+			}
+		}()
 	default: // selfsigned
 		certFile, keyFile := ensureSelfSigned(dir, cfg.Domain)
 		log.Printf("[https-front] 自签证书模式（浏览器会有证书警告）: %s", certFile)
-		go func() { httpError <- tlsSrv.ListenAndServeTLS(certFile, keyFile) }()
+		go func() {
+			if err := tlsSrv.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+				log.Printf("[https-front] TLS 服务异常: %v", err)
+			}
+		}()
 	}
 
 	// 优雅退出
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
-	select {
-	case <-sig:
-		log.Println("[https-front] 收到退出信号")
-		_ = tlsSrv.Close()
-		_ = statusSrv.Close()
-	case err := <-httpError:
-		log.Fatalf("[https-front] TLS 服务异常退出: %v", err)
-	}
+	<-sig
+	log.Println("[https-front] 收到退出信号")
+	_ = tlsSrv.Close()
+	_ = statusSrv.Close()
 }
 
-// normalize 补默认值并校验配置。
+// configHandler 配置页与 API：GET / 页面；GET/POST /api/config 读写配置；
+// GET /api/status 运行状态。仅监听插件端口（经面板网关 /p/https-front/* 访问）。
+func configHandler(dir, cfgPath string) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		data, err := webFS.ReadFile("web/index.html")
+		if err != nil {
+			http.Error(w, "页面资源缺失", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(data)
+	})
+	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
+		cfg := &Config{}
+		if data, err := os.ReadFile(cfgPath); err == nil {
+			_ = yaml.Unmarshal(data, cfg)
+		}
+		normalize(cfg)
+		writeJSON(w, http.StatusOK, cfg)
+	})
+	mux.HandleFunc("POST /api/config", func(w http.ResponseWriter, r *http.Request) {
+		var cfg Config
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求格式错误: " + err.Error()})
+			return
+		}
+		normalize(&cfg)
+		if err := validate(&cfg); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		data, err := yaml.Marshal(&cfg)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := os.WriteFile(cfgPath, data, 0o600); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "写入配置失败: " + err.Error()})
+			return
+		}
+		log.Printf("[https-front] 配置已保存（mode=%s listen=%s），请重启插件生效", cfg.Mode, cfg.Listen)
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
+		cfg := &Config{}
+		if data, err := os.ReadFile(cfgPath); err == nil {
+			_ = yaml.Unmarshal(data, cfg)
+		}
+		normalize(cfg)
+		writeJSON(w, http.StatusOK, map[string]string{
+			"mode":        cfg.Mode,
+			"listen":      cfg.Listen,
+			"panel_addr":  cfg.PanelAddr,
+			"cert_expiry": certExpiry(dir, cfg),
+		})
+	})
+	return mux
+}
+
+// normalize 补默认值；未知模式回退 selfsigned（不致命，保证配置页始终可用）。
 func normalize(cfg *Config) {
 	if cfg.PanelAddr == "" {
 		cfg.PanelAddr = "127.0.0.1:8787"
@@ -165,23 +238,51 @@ func normalize(cfg *Config) {
 	if cfg.Listen == "" {
 		cfg.Listen = ":8443"
 	}
-	if cfg.Mode == "" {
-		cfg.Mode = "selfsigned"
-	}
 	if cfg.ACMEHTTPAddr == "" {
 		cfg.ACMEHTTPAddr = ":80"
 	}
 	switch cfg.Mode {
-	case "selfsigned", "cert", "acme":
+	case "", "selfsigned":
+		cfg.Mode = "selfsigned"
+	case "cert", "acme":
 	default:
-		log.Fatalf("未知证书模式: %s（支持 selfsigned/cert/acme）", cfg.Mode)
+		log.Printf("[https-front] 未知证书模式 %q，回退 selfsigned", cfg.Mode)
+		cfg.Mode = "selfsigned"
 	}
-	if cfg.Mode == "cert" && (cfg.CertFile == "" || cfg.KeyFile == "") {
-		log.Fatal("mode=cert 需要配置 cert_file 与 key_file")
+}
+
+// validate 校验配置（配置页保存时调用）。
+func validate(cfg *Config) error {
+	switch cfg.Mode {
+	case "selfsigned":
+	case "cert":
+		if cfg.CertFile == "" || cfg.KeyFile == "" {
+			return errors.New("cert 模式需要填写证书文件与私钥文件")
+		}
+	case "acme":
+		if cfg.Domain == "" {
+			return errors.New("acme 模式需要填写域名")
+		}
+	default:
+		return errors.New("未知证书模式: " + cfg.Mode)
 	}
-	if cfg.Mode == "acme" && cfg.Domain == "" {
-		log.Fatal("mode=acme 需要配置 domain")
+	return nil
+}
+
+// certExpiry 返回证书到期日期（自签或已配置证书），用于状态展示。
+func certExpiry(dir string, cfg *Config) string {
+	pemPath := filepath.Join(dir, "cert.pem")
+	if cfg.Mode == "cert" && cfg.CertFile != "" {
+		pemPath = cfg.CertFile
 	}
+	if b, err := os.ReadFile(pemPath); err == nil {
+		if block, _ := pem.Decode(b); block != nil {
+			if c, err := x509.ParseCertificate(block.Bytes); err == nil {
+				return c.NotAfter.Format("2006-01-02")
+			}
+		}
+	}
+	return "-"
 }
 
 // buildProxy 反向代理到面板：保留原始 Host（面板 CSRF 与终端 WS 的 Origin 校验依赖），
@@ -206,28 +307,6 @@ func buildProxy(cfg *Config) http.Handler {
 	return proxy
 }
 
-// statusHandler 返回插件状态页（仅通过面板网关 /p/https-front/ 或直连插件端口访问）。
-func statusHandler(dir string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		expiry := "（自签证书，无过期信息）"
-		if b, err := os.ReadFile(filepath.Join(dir, "cert.pem")); err == nil {
-			if block, _ := pem.Decode(b); block != nil {
-				if c, err := x509.ParseCertificate(block.Bytes); err == nil {
-					expiry = c.NotAfter.Format("2006-01-02")
-				}
-			}
-		}
-		fmt.Fprintf(w, `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>HTTPS 网关</title></head>
-<body style="font-family:ui-monospace,monospace;max-width:640px;margin:40px auto">
-<h2>HTTPS 网关</h2>
-<p>面板入口已由本插件提供 HTTPS 终结（TLS 反代到面板）。</p>
-<p>证书到期：%s</p>
-<p>配置：%s/config.yaml（修改后重启插件生效）</p>
-</body></html>`, expiry, dir)
-	})
-}
-
 // ensureSelfSigned 生成并持久化自签 ECDSA 证书（首次运行），返回 cert/key 路径。
 func ensureSelfSigned(dir, domain string) (string, string) {
 	certFile := filepath.Join(dir, "cert.pem")
@@ -242,16 +321,14 @@ func ensureSelfSigned(dir, domain string) (string, string) {
 	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	tmpl := x509.Certificate{
 		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: "iotapanel HTTPS"},
+		Subject:      pkix.Name{CommonName: "IotaPanel HTTPS"},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(825 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
-	if domain != "" {
-		for _, d := range strings.Split(domain, ",") {
-			tmpl.DNSNames = append(tmpl.DNSNames, strings.TrimSpace(d))
-		}
+	for _, d := range splitDomains(domain) {
+		tmpl.DNSNames = append(tmpl.DNSNames, d)
 	}
 	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
 	if err != nil {
@@ -266,6 +343,22 @@ func ensureSelfSigned(dir, domain string) (string, string) {
 	return certFile, keyFile
 }
 
+func splitDomains(s string) []string {
+	var out []string
+	for _, d := range strings.Split(s, ",") {
+		if d = strings.TrimSpace(d); d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(v)
+}
+
 func envOr(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
@@ -273,4 +366,3 @@ func envOr(k, def string) string {
 	return def
 }
 
-// 显式引用 net 包（证书生成用），避免误删。

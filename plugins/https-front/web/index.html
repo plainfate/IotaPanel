@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTPS 网关 · IotaPanel</title>
+<style>
+  :root { --bg:#14181f; --card:#1c222c; --text:#e6e9ef; --muted:#8b94a3; --accent:#4e8cff; --ok:#3fb950; --err:#f85149; --border:#2b3340; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; min-height:100vh; padding:24px; }
+  .wrap { max-width:680px; margin:0 auto; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  .field { flex:1; min-width:220px; margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
+  input, select { width:100%; background:#0f131a; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px 11px; font-size:14px; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  .hint { font-size:12px; color:var(--muted); margin-top:5px; }
+  button { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:10px 22px; font-size:14px; cursor:pointer; }
+  button:hover { opacity:.9; }
+  #msg { margin-top:12px; font-size:13px; min-height:18px; }
+  #msg.ok { color:var(--ok); } #msg.err { color:var(--err); }
+  .st { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:var(--muted); }
+  .st b { color:var(--text); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔒 HTTPS 网关</h1>
+  <div class="sub">为面板提供 HTTPS 入口（TLS 终结 + 反代回面板）。保存配置后插件会自动重启生效。</div>
+  <div class="card st" id="status"></div>
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>证书方式</label>
+        <select id="mode">
+          <option value="selfsigned">自签证书（开箱即用）</option>
+          <option value="cert">已有证书（certbot 等）</option>
+          <option value="acme">Let's Encrypt 自动签发（ACME）</option>
+        </select>
+      </div>
+      <div class="field"><label>面板地址</label><input id="panel_addr" placeholder="127.0.0.1:8787"></div>
+      <div class="field"><label>对外 HTTPS 端口</label><input id="listen" placeholder=":8443"></div>
+    </div>
+    <div class="row" id="cert-row" style="display:none">
+      <div class="field"><label>证书文件（fullchain.pem）</label><input id="cert_file" placeholder="/etc/letsencrypt/live/example.com/fullchain.pem"></div>
+      <div class="field"><label>私钥文件（privkey.pem）</label><input id="key_file" placeholder="/etc/letsencrypt/live/example.com/privkey.pem"></div>
+    </div>
+    <div class="row" id="acme-row" style="display:none">
+      <div class="field"><label>域名（可逗号分隔多个）</label><input id="domain" placeholder="panel.example.com"></div>
+      <div class="field"><label>联系邮箱</label><input id="email" placeholder="you@example.com"></div>
+      <div class="field"><label>HTTP-01 挑战端口</label><input id="acme_http_addr" placeholder=":80"></div>
+    </div>
+    <div class="hint">面板需改为仅本机监听并开启受信反代模式（<code>etc/.env</code>：<code>LISTEN_ADDR=127.0.0.1:8787</code> + <code>PANEL_TRUST_PROXY=1</code>）后重启面板。</div>
+    <div style="margin-top:16px"><button onclick="save()">保存并重启</button></div>
+    <div id="msg"></div>
+  </div>
+</div>
+<script>
+async function load() {
+  try {
+    const d = await (await fetch('api/config')).json();
+    document.getElementById('mode').value = d.mode || 'selfsigned';
+    document.getElementById('panel_addr').value = d.panel_addr || '127.0.0.1:8787';
+    document.getElementById('listen').value = d.listen || ':8443';
+    document.getElementById('cert_file').value = d.cert_file || '';
+    document.getElementById('key_file').value = d.key_file || '';
+    document.getElementById('domain').value = d.domain || '';
+    document.getElementById('email').value = d.email || '';
+    document.getElementById('acme_http_addr').value = d.acme_http_addr || ':80';
+    toggleRows();
+    const st = await (await fetch('api/status')).json();
+    document.getElementById('status').innerHTML =
+      '模式：<b>' + (st.mode || '-') + '</b> 监听：<b>' + (st.listen || '-') + '</b> 证书到期：<b>' + (st.cert_expiry || '-') + '</b>';
+  } catch (e) { msg('加载配置失败: ' + e, false); }
+}
+function toggleRows() {
+  const m = document.getElementById('mode').value;
+  document.getElementById('cert-row').style.display = m === 'cert' ? '' : 'none';
+  document.getElementById('acme-row').style.display = m === 'acme' ? '' : 'none';
+}
+document.getElementById('mode').addEventListener('change', toggleRows);
+function msg(t, ok) { const el = document.getElementById('msg'); el.textContent = t; el.className = ok ? 'ok' : 'err'; }
+async function save() {
+  const body = {
+    mode: document.getElementById('mode').value,
+    panel_addr: document.getElementById('panel_addr').value.trim(),
+    listen: document.getElementById('listen').value.trim(),
+    cert_file: document.getElementById('cert_file').value.trim(),
+    key_file: document.getElementById('key_file').value.trim(),
+    domain: document.getElementById('domain').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    acme_http_addr: document.getElementById('acme_http_addr').value.trim(),
+  };
+  try {
+    const r = await fetch('api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '保存失败');
+    msg('配置已保存，正在重启插件…', true);
+    setTimeout(async () => {
+      try {
+        const rr = await fetch('/api/plugins/https-front/restart', { method: 'POST' });
+        const dd = await rr.json();
+        if (!rr.ok) throw new Error(dd.error || '重启失败');
+        msg('已重启，新配置生效（若端口/证书变化，请手动刷新本页）。', true);
+      } catch (e) { msg('保存成功，但自动重启失败：' + e.message + '（可到插件详情手动重启）', false); }
+    }, 300);
+  } catch (e) { msg(e.message, false); }
+}
+load();
+</script>
+</body>
+</html>
