@@ -52,24 +52,24 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 
 **第 1 步：下载对应架构的安装包**
 下面以 Linux ARM64 为例。其他平台把文件名换成：
-- Linux x86_64 → `iotapanel-0.3.5-linux-amd64.tar.gz`
-- Windows → `iotapanel-0.3.5-windows-amd64.tar.gz`
-- macOS → `iotapanel-0.3.5-darwin-amd64.tar.gz`
+- Linux x86_64 → `iotapanel-0.3.6-linux-amd64.tar.gz`
+- Windows → `iotapanel-0.3.6-windows-amd64.tar.gz`
+- macOS → `iotapanel-0.3.6-darwin-amd64.tar.gz`
 
 ```bash
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-linux-arm64.tar.gz
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.6/iotapanel-0.3.6-linux-arm64.tar.gz
 ```
 
 **第 2 步：解压**
 
 ```bash
-tar xzf iotapanel-0.3.5-linux-arm64.tar.gz
+tar xzf iotapanel-0.3.6-linux-arm64.tar.gz
 ```
 
 **第 3 步：进入解压目录**
 
 ```bash
-cd iotapanel-0.3.5-linux-arm64
+cd iotapanel-0.3.6-linux-arm64
 ```
 
 **第 4 步：运行安装脚本**（默认装到 /data/panel 并注册 systemd 自动启动）
@@ -86,22 +86,22 @@ bash install.sh --no-systemd             # 只部署，不注册 systemd
 Linux（两种架构任选其一）：
 
 ```bash
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-linux-arm64.tar.gz   # ARM64
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-linux-amd64.tar.gz   # x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.6/iotapanel-0.3.6-linux-arm64.tar.gz   # ARM64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.6/iotapanel-0.3.6-linux-amd64.tar.gz   # x86_64
 ```
 
 Windows / macOS 包内**没有 install.sh**，需手动解压后直接运行：
 
 ```bash
 # Windows x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-windows-amd64.tar.gz
-tar xzf iotapanel-0.3.5-windows-amd64.tar.gz   # 或右键「全部解压」
-cd iotapanel-0.3.5-windows-amd64 && bin\panel.exe
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.6/iotapanel-0.3.6-windows-amd64.tar.gz
+tar xzf iotapanel-0.3.6-windows-amd64.tar.gz   # 或右键「全部解压」
+cd iotapanel-0.3.6-windows-amd64 && bin\panel.exe
 
 # macOS x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-darwin-amd64.tar.gz
-tar xzf iotapanel-0.3.5-darwin-amd64.tar.gz
-cd iotapanel-0.3.5-darwin-amd64 && bin/panel
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.6/iotapanel-0.3.6-darwin-amd64.tar.gz
+tar xzf iotapanel-0.3.6-darwin-amd64.tar.gz
+cd iotapanel-0.3.6-darwin-amd64 && bin/panel
 ```
 
 #### 方式三：本地构建后安装（仅开发者/内测）
@@ -118,7 +118,7 @@ cd iotapanel-0.3.5-darwin-amd64 && bin/panel
 ```bash
 ./package.sh                              # 打包全部平台: linux-amd64 linux-arm64 windows-amd64 darwin-amd64
 ./package.sh --targets linux-amd64,linux-arm64   # 只打指定平台
-./package.sh --version 0.3.5              # 自定义版本号
+./package.sh --version 0.3.6              # 自定义版本号
 ```
 
 产物（`dist/`，附 `.sha256`）：

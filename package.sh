@@ -63,8 +63,8 @@ mkdir -p dist
 #   windows: 仅纯标准库插件
 plugin_list() {
   case "$1" in
-    linux-*)   echo "file-manager resource-monitor hello terminal https-front" ;;
-    darwin-*)  echo "file-manager resource-monitor hello https-front" ;;
+    linux-*)   echo "file-manager resource-monitor hello terminal https-front mcp-agent" ;;
+    darwin-*)  echo "file-manager resource-monitor hello https-front mcp-agent" ;;
     windows-*) echo "hello" ;;
     *)         echo "file-manager resource-monitor hello" ;;
   esac
@@ -124,7 +124,7 @@ done
 # 恢复本机架构的 bin/panel（避免交叉编译产物留在本地无法运行）
 echo ""
 echo "==> 恢复本机架构 ($NATIVE_ARCH) 的 bin/panel …"
-GOOS=linux GOARCH="$NATIVE_ARCH" PLUGINS="file-manager resource-monitor hello terminal https-front" ./build.sh > /tmp/mp-build-native.log 2>&1 || true
+GOOS=linux GOARCH="$NATIVE_ARCH" PLUGINS="file-manager resource-monitor hello terminal https-front mcp-agent" ./build.sh > /tmp/mp-build-native.log 2>&1 || true
 
 echo ""
 echo "✅ 打包完成，产物位于 dist/"

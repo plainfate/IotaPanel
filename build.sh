@@ -21,7 +21,7 @@ GO="${GO:-go}"
 OUT=bin
 
 # 默认插件（Linux/macOS 全量；Windows 目标由 package.sh 显式传入）
-PLUGINS="${PLUGINS:-file-manager resource-monitor hello terminal https-front}"
+PLUGINS="${PLUGINS:-file-manager resource-monitor hello terminal https-front mcp-agent}"
 
 echo "[1/4] 清理旧的内嵌插件包…"
 rm -rf internal/embed/plugins
