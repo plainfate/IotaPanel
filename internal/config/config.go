@@ -31,7 +31,7 @@ import (
 )
 
 // Version 面板核心版本号（可用 ldflags 覆盖）。
-const Version = "0.3.1"
+const Version = "0.3.2"
 
 type Config struct {
 	Home        string        // PANEL_HOME 安装目录（用户自定义，不强制 /opt）
@@ -40,6 +40,7 @@ type Config struct {
 	IdleTimeout time.Duration // 插件空闲退出时间
 	PortLo      int           // 插件端口池下限
 	PortHi      int           // 插件端口池上限
+	TrustProxy  bool          // PANEL_TRUST_PROXY：部署在受信反代之后才信任 X-Forwarded-* 头
 }
 
 // Load 读取环境变量与 .env 文件，构造配置。
@@ -83,6 +84,11 @@ func Load() (*Config, error) {
 	}
 	if v := os.Getenv("PORT_END"); v != "" {
 		fmt.Sscanf(v, "%d", &cfg.PortHi)
+	}
+	// 仅当面板部署在受信反向代理之后才信任 X-Forwarded-* 头（CSRF 校验 / 协议推断用）。
+	// 直连模式（默认）忽略这些头，防止客户端伪造头绕过 Origin 校验。
+	if v := os.Getenv("PANEL_TRUST_PROXY"); v == "1" || strings.EqualFold(v, "true") {
+		cfg.TrustProxy = true
 	}
 
 	if cfg.JWTSecret == "" {

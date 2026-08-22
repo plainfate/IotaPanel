@@ -257,8 +257,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 普通登录 = 会话级 cookie（关浏览器失效）；记住我 = 30 天持久 cookie
-	// 经 TLS 或 TLS 反向代理访问时标记 Secure（明文 HTTP 下不设置，避免登录失效）
-	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+	// 经 TLS 或受信反代（PANEL_TRUST_PROXY=1）透传的 HTTPS 时标记 Secure；
+	// 直连模式不信任客户端伪造的 X-Forwarded-Proto（明文 HTTP 下不设 Secure，避免登录失效）
+	secure := r.TLS != nil || (s.cfg.TrustProxy && strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https"))
 	cookie := &http.Cookie{
 		Name: auth.CookieName, Value: token,
 		Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure,
@@ -549,12 +550,11 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "端口需在 1-65535 之间"})
 			return
 		}
-		host := "0.0.0.0"
-		if _, p, err := net.SplitHostPort(s.cfg.ListenAddr); err == nil {
-			host = strings.TrimSuffix(s.cfg.ListenAddr, ":"+p)
-			if host == "" {
-				host = "0.0.0.0"
-			}
+		// 保留原监听地址的 host 部分（含空 host = 全部网卡 IPv4+IPv6 双栈），
+		// 只替换端口，避免把双栈 :8787 静默改成 IPv4-only 的 0.0.0.0:PORT
+		host := ""
+		if h, _, err := net.SplitHostPort(s.cfg.ListenAddr); err == nil {
+			host = h
 		}
 		newAddr := net.JoinHostPort(host, strconv.Itoa(req.ListenPort))
 		if err := config.SetEnvVar(s.cfg.Home, "LISTEN_ADDR", newAddr); err != nil {

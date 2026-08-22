@@ -38,7 +38,6 @@ import (
 
 const (
 	readinessTimeout = 6 * time.Second
-	stopGrace        = 3 * time.Second
 	// maxLogBytes 插件日志单文件上限（超限启动时轮转保留一份 .1）
 	maxLogBytes = 20 << 20
 )

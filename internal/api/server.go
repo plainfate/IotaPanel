@@ -61,7 +61,7 @@ func NewServer(cfg *config.Config, database *db.DB, mgr *plugins.Manager, logger
 		cfg:   cfg,
 		db:    database,
 		mgr:   mgr,
-		gw:    gateway.New(mgr),
+		gw:    gateway.New(mgr, cfg.TrustProxy),
 		prog:  &setupProgress{},
 		guard: &loginGuard{fails: map[string]int{}, until: map[string]time.Time{}},
 		start: time.Now(),
@@ -103,8 +103,22 @@ func (s *Server) Handler() http.Handler {
 	// 插件网关：/p/<插件名>/* 支持任意方法（GET 页面、POST 插件 API 等），需登录
 	mux.Handle("/p/", s.auth(http.HandlerFunc(s.gw.ServeHTTP)))
 	mux.HandleFunc("/", s.handleUI)
-	// 顺序：CSRF 校验（最外层）→ 访问日志 → 路由
-	return s.logRequests(s.csrfCheck(mux))
+	// 顺序：安全响应头（最外层）→ 访问日志 → CSRF 校验 → 路由
+	return s.logRequests(s.securityHeaders(s.csrfCheck(mux)))
+}
+
+// securityHeaders 设置基础安全响应头：防点击劫持、防 MIME 嗅探，
+// HTTPS（含受信反代透传）下启用 HSTS。
+func (s *Server) securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Frame-Options", "SAMEORIGIN")
+		h.Set("X-Content-Type-Options", "nosniff")
+		if r.TLS != nil || (s.cfg.TrustProxy && strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")) {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // csrfCheck 对状态变更请求（POST/PUT/DELETE/PATCH）校验 Origin，
@@ -115,7 +129,7 @@ func (s *Server) csrfCheck(next http.Handler) http.Handler {
 		switch r.Method {
 		case http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch:
 			origin := r.Header.Get("Origin")
-			if origin != "" && !sameOrigin(origin, r) {
+			if origin != "" && !sameOrigin(origin, r, s.cfg.TrustProxy) {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "跨站请求被拒绝"})
 				return
 			}
@@ -125,15 +139,18 @@ func (s *Server) csrfCheck(next http.Handler) http.Handler {
 }
 
 // sameOrigin 判断 Origin 头与请求目标是否同源（比较 host:port，忽略协议）。
-// 反向代理部署时优先取 X-Forwarded-Host（浏览器 Origin 是公网地址）。
-func sameOrigin(origin string, r *http.Request) bool {
+// 仅当面板部署在受信反向代理之后（trustProxy）才采信 X-Forwarded-Host；
+// 直连模式（默认）忽略该头——X-Forwarded-* 可被客户端伪造，一律以 r.Host 为准。
+func sameOrigin(origin string, r *http.Request, trustProxy bool) bool {
 	u, err := url.Parse(origin)
 	if err != nil || u.Host == "" {
 		return false
 	}
 	host := r.Host
-	if xh := r.Header.Get("X-Forwarded-Host"); xh != "" {
-		host = xh
+	if trustProxy {
+		if xh := r.Header.Get("X-Forwarded-Host"); xh != "" {
+			host = xh
+		}
 	}
 	return strings.EqualFold(u.Host, host)
 }

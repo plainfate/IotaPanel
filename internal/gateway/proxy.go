@@ -30,11 +30,12 @@ import (
 )
 
 type Gateway struct {
-	mgr *plugins.Manager
+	mgr        *plugins.Manager
+	trustProxy bool
 }
 
-func New(mgr *plugins.Manager) *Gateway {
-	return &Gateway{mgr: mgr}
+func New(mgr *plugins.Manager, trustProxy bool) *Gateway {
+	return &Gateway{mgr: mgr, trustProxy: trustProxy}
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -59,8 +60,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	target, _ := url.Parse(fmt.Sprintf("http://%s:%d", rt.Bind(), rt.Port()))
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	origHost := r.Host
-	// 协议透传：优先沿用入站 X-Forwarded-Proto（TLS 反代场景），否则按连接推断
-	proto := r.Header.Get("X-Forwarded-Proto")
+	// 协议透传：仅受信反代模式下沿用入站 X-Forwarded-Proto（否则客户端可伪造），
+	// 其余按连接本身推断（TLS/https，否则 http）
+	proto := ""
+	if g.trustProxy {
+		proto = r.Header.Get("X-Forwarded-Proto")
+	}
 	if proto == "" {
 		if r.TLS != nil {
 			proto = "https"
