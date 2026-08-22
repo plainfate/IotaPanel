@@ -5,17 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HTTPS 网关 · IotaPanel</title>
 <style>
-  :root { --bg:#14181f; --card:#1c222c; --text:#e6e9ef; --muted:#8b94a3; --accent:#4e8cff; --ok:#3fb950; --err:#f85149; --border:#2b3340; }
+  :root { --bg:#f6f4ef; --card:#ffffff; --text:#33393f; --muted:#7e8a94; --accent:#5e7f58; --ok:#5e7f58; --err:#c46a5a; --border:#e4e0d6; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; min-height:100vh; padding:24px; }
   .wrap { max-width:680px; margin:0 auto; }
-  h1 { font-size:20px; margin-bottom:4px; background:linear-gradient(135deg,#4e8cff,#7a5cff); color:#fff; padding:18px 22px; border-radius:10px; }
+  h1 { font-size:20px; margin-bottom:4px; background:linear-gradient(135deg,#7a9b7a,#5e7f58); color:#fff; padding:18px 22px; border-radius:10px; }
   .sub { color:var(--muted); font-size:13px; margin-bottom:20px; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px; }
   .row { display:flex; gap:16px; flex-wrap:wrap; }
   .field { flex:1; min-width:220px; margin-bottom:14px; }
   label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
-  input, select { width:100%; background:#0f131a; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px 11px; font-size:14px; }
+  input, select { width:100%; background:#f6f4ef; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px 11px; font-size:14px; }
   input:focus, select:focus { outline:none; border-color:var(--accent); }
   .hint { font-size:12px; color:var(--muted); margin-top:5px; }
   button { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:10px 22px; font-size:14px; cursor:pointer; }
@@ -31,9 +31,9 @@
   <h1>🔒 HTTPS 网关</h1>
   <div class="sub">为面板提供 HTTPS 入口（TLS 终结 + 反代回面板）。保存配置后插件会自动重启生效。</div>
   <div class="card st" id="status"></div>
-  <div class="card" id="panel-warn" style="display:none;border-color:#8a6d3b;background:#2a2416">
-    <b style="color:#d9a441">⚠️ 面板 HTTP 端口仍对外暴露</b>
-    <div style="font-size:13px;color:#b8a06a;margin-top:6px">面板当前监听 <code id="pw-listen">?</code>，公网仍可直接用 <code>http://服务器IP:8787</code> 访问（绕过 HTTPS）。点击下方按钮自动改为仅本机监听并重启面板。</div>
+  <div class="card" id="panel-warn" style="display:none;border-color:#d9b45a;background:#faf3e3">
+    <b style="color:#a07d2a">⚠️ 面板 HTTP 端口仍对外暴露</b>
+    <div style="font-size:13px;color:#d9b45a;margin-top:6px">面板当前监听 <code id="pw-listen">?</code>，公网仍可直接用 <code>http://服务器IP:8787</code> 访问（绕过 HTTPS）。点击下方按钮自动改为仅本机监听并重启面板。</div>
     <div style="margin-top:10px"><button onclick="applyPanelSetup()">一键应用安全设置并重启面板</button></div>
   </div>
   <div class="card">
