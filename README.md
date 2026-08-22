@@ -1,10 +1,10 @@
 # IotaPanel（微面板）
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8.svg)](https://go.dev/)
 [![GitHub](https://img.shields.io/badge/GitHub-plainfate%2FIotaPanel-181717.svg?logo=github)](https://github.com/plainfate/IotaPanel)
 
-> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 GPL-3.0 许可证。
+> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 Apache-2.0 许可证。
 > 安装包随更名同步改为 `iotapanel-*`（新版本发布后下载链接生效）。
 
 > **极简微内核 + 进程级隔离 + 按需启动** 的 Linux 服务器应用框架。
@@ -52,24 +52,24 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 
 **第 1 步：下载对应架构的安装包**
 下面以 Linux ARM64 为例。其他平台把文件名换成：
-- Linux x86_64 → `iotapanel-0.3.4-linux-amd64.tar.gz`
-- Windows → `iotapanel-0.3.4-windows-amd64.tar.gz`
-- macOS → `iotapanel-0.3.4-darwin-amd64.tar.gz`
+- Linux x86_64 → `iotapanel-0.3.5-linux-amd64.tar.gz`
+- Windows → `iotapanel-0.3.5-windows-amd64.tar.gz`
+- macOS → `iotapanel-0.3.5-darwin-amd64.tar.gz`
 
 ```bash
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.4/iotapanel-0.3.4-linux-arm64.tar.gz
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-linux-arm64.tar.gz
 ```
 
 **第 2 步：解压**
 
 ```bash
-tar xzf iotapanel-0.3.4-linux-arm64.tar.gz
+tar xzf iotapanel-0.3.5-linux-arm64.tar.gz
 ```
 
 **第 3 步：进入解压目录**
 
 ```bash
-cd iotapanel-0.3.4-linux-arm64
+cd iotapanel-0.3.5-linux-arm64
 ```
 
 **第 4 步：运行安装脚本**（默认装到 /data/panel 并注册 systemd 自动启动）
@@ -86,22 +86,22 @@ bash install.sh --no-systemd             # 只部署，不注册 systemd
 Linux（两种架构任选其一）：
 
 ```bash
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.4/iotapanel-0.3.4-linux-arm64.tar.gz   # ARM64
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.4/iotapanel-0.3.4-linux-amd64.tar.gz   # x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-linux-arm64.tar.gz   # ARM64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-linux-amd64.tar.gz   # x86_64
 ```
 
 Windows / macOS 包内**没有 install.sh**，需手动解压后直接运行：
 
 ```bash
 # Windows x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.4/iotapanel-0.3.4-windows-amd64.tar.gz
-tar xzf iotapanel-0.3.4-windows-amd64.tar.gz   # 或右键「全部解压」
-cd iotapanel-0.3.4-windows-amd64 && bin\panel.exe
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-windows-amd64.tar.gz
+tar xzf iotapanel-0.3.5-windows-amd64.tar.gz   # 或右键「全部解压」
+cd iotapanel-0.3.5-windows-amd64 && bin\panel.exe
 
 # macOS x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.4/iotapanel-0.3.4-darwin-amd64.tar.gz
-tar xzf iotapanel-0.3.4-darwin-amd64.tar.gz
-cd iotapanel-0.3.4-darwin-amd64 && bin/panel
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.5/iotapanel-0.3.5-darwin-amd64.tar.gz
+tar xzf iotapanel-0.3.5-darwin-amd64.tar.gz
+cd iotapanel-0.3.5-darwin-amd64 && bin/panel
 ```
 
 #### 方式三：本地构建后安装（仅开发者/内测）
@@ -118,7 +118,7 @@ cd iotapanel-0.3.4-darwin-amd64 && bin/panel
 ```bash
 ./package.sh                              # 打包全部平台: linux-amd64 linux-arm64 windows-amd64 darwin-amd64
 ./package.sh --targets linux-amd64,linux-arm64   # 只打指定平台
-./package.sh --version 0.3.4              # 自定义版本号
+./package.sh --version 0.3.5              # 自定义版本号
 ```
 
 产物（`dist/`，附 `.sha256`）：
@@ -371,8 +371,8 @@ plugins/                   # 官方插件源码
 
 ## 许可证（License）
 
-本项目采用 **GNU 通用公共许可证第 3 版（GPLv3）**（SPDX: `GPL-3.0-or-later`）。
-您可以自由使用、修改、复制与分发本软件，但修改版本或衍生作品必须同样以 GPLv3 授权并开放源代码。
+本项目采用 **Apache License 2.0**（SPDX: `Apache-2.0`）。
+您可以自由使用、修改、复制与分发本软件（含商用），需保留版权声明与许可证副本。
 本软件按「现状」提供，不附带任何担保。完整法律文本见 [LICENSE](LICENSE)。
 
-版权所有（Copyright ©）2026 [plainfate](https://github.com/plainfate)，遵循 GPLv3 许可证发布。
+版权所有（Copyright ©）2026 [plainfate](https://github.com/plainfate)，遵循 Apache-2.0 许可证发布。

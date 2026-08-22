@@ -31,6 +31,11 @@
   <h1>🔒 HTTPS 网关</h1>
   <div class="sub">为面板提供 HTTPS 入口（TLS 终结 + 反代回面板）。保存配置后插件会自动重启生效。</div>
   <div class="card st" id="status"></div>
+  <div class="card" id="panel-warn" style="display:none;border-color:#8a6d3b;background:#2a2416">
+    <b style="color:#d9a441">⚠️ 面板 HTTP 端口仍对外暴露</b>
+    <div style="font-size:13px;color:#b8a06a;margin-top:6px">面板当前监听 <code id="pw-listen">?</code>，公网仍可直接用 <code>http://服务器IP:8787</code> 访问（绕过 HTTPS）。点击下方按钮自动改为仅本机监听并重启面板。</div>
+    <div style="margin-top:10px"><button onclick="applyPanelSetup()">一键应用安全设置并重启面板</button></div>
+  </div>
   <div class="card">
     <div class="row">
       <div class="field"><label>证书方式</label>
@@ -72,8 +77,29 @@ async function load() {
     toggleRows();
     const st = await (await fetch('api/status')).json();
     document.getElementById('status').innerHTML =
-      '模式：<b>' + (st.mode || '-') + '</b> 监听：<b>' + (st.listen || '-') + '</b> 证书到期：<b>' + (st.cert_expiry || '-') + '</b>';
+      '模式：<b>' + (st.mode || '-') + '</b> 监听：<b>' + (st.listen || '-') + '</b> 证书到期：<b>' + (st.cert_expiry || '-') + '</b>' +
+      '<br>面板监听：<b>' + (st.panel_listen || '全部网卡') + '</b> ' +
+      (st.panel_exposed ? '<span style="color:var(--err)">⚠ 对外暴露</span>' : '<span style="color:var(--ok)">✓ 仅本机可达</span>') +
+      ' 信任反代：<b>' + (st.panel_trust_proxy ? '<span style="color:var(--ok)">✓ 已开启</span>' : '<span style="color:var(--err)">✗ 未开启</span>') + '</b>';
+    const needFix = st.panel_exposed || !st.panel_trust_proxy;
+    document.getElementById('panel-warn').style.display = needFix ? '' : 'none';
+    if (st.panel_exposed) document.getElementById('pw-listen').textContent = st.panel_listen || '全部网卡(:8787)';
   } catch (e) { msg('加载配置失败: ' + e, false); }
+}
+async function applyPanelSetup() {
+  try {
+    const r = await fetch('api/panel-setup', { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '设置失败');
+    msg('已写入面板配置，正在重启面板…', true);
+    setTimeout(async () => {
+      try {
+        const rr = await fetch('/api/system/restart', { method: 'POST' });
+        if (!rr.ok) throw new Error('重启请求失败');
+        msg('面板重启中，约 2 秒后恢复，请刷新本页验证。', true);
+      } catch (e) { msg('配置已写入，但面板重启失败：' + e.message + '（请手动 panel restart）', false); }
+    }, 400);
+  } catch (e) { msg(e.message, false); }
 }
 function toggleRows() {
   const m = document.getElementById('mode').value;

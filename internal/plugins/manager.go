@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 //
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 //
-// IotaPanel is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// IotaPanel is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// You should have received a copy of the GNU General Public License
-// along with IotaPanel.  If not, see <https://www.gnu.org/licenses/>.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package plugins
 
@@ -120,10 +119,10 @@ func NewManager(home string, idle time.Duration, portLo, portHi int, store Store
 func (m *Manager) SetIdle(d time.Duration) { m.Idle = d }
 
 // Load 在核心启动时扫描 port-map.json：
-// 端口仍被占用的记录直接复用（不杀进程），失效记录清理。
+// 端口仍被占用的记录直接复用（不杀进程），失效记录清理；
+// 随后把所有「启用保活但未运行」的插件自动拉起（自愈，覆盖 systemctl restart 误杀等场景）。
 func (m *Manager) Load() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	entries := m.readPortMap()
 	for name, e := range entries {
 		// 按插件 manifest 的 bind 探测（支持 0.0.0.0 / 指定 IP 的插件，避免误判失效）
@@ -145,6 +144,36 @@ func (m *Manager) Load() {
 		}
 	}
 	m.savePortMapLocked()
+	m.mu.Unlock()
+
+	m.reviveKeepalive()
+}
+
+// reviveKeepalive 扫描已安装插件，把所有启用保活但未运行的插件冷启动。
+func (m *Manager) reviveKeepalive() {
+	entries, err := os.ReadDir(filepath.Join(m.Home, "plugins"))
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !m.store.IsKeepalive(name) {
+			continue
+		}
+		m.mu.Lock()
+		_, running := m.runtimes[name]
+		m.mu.Unlock()
+		if running {
+			continue
+		}
+		m.log.Info("reviving keepalive plugin", "plugin", name)
+		if _, err := m.Start(name); err != nil {
+			m.log.Warn("revive keepalive plugin failed", "plugin", name, "err", err)
+		}
+	}
 }
 
 // Start 冷启动插件进程，等待端口就绪。

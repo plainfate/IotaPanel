@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 plainfate <https://github.com/plainfate>
 # ============================================================
 # IotaPanel 一键安装脚本
@@ -163,6 +163,9 @@ ExecStart=$INSTALL_DIR/bin/panel
 Restart=on-failure
 RestartSec=3
 KillSignal=SIGTERM
+# 只杀面板主进程，保留保活插件进程（默认 control-group 会把插件一起杀掉，
+# 导致 systemctl restart 后保活插件（如 https-front）失效）
+KillMode=process
 TimeoutStopSec=10
 LimitNOFILE=65535
 

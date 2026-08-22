@@ -4,7 +4,7 @@
 > 通篇使用可直接复制执行的命令与完整可运行的代码示例，并解释每一步**为什么这么做**。
 > 若你只是想安装/使用面板，看 [README.md](README.md) 即可；本文假设你打算**改代码或写插件**。
 >
-> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 GPL-3.0 许可证。
+> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 Apache-2.0 许可证。
 
 ---
 

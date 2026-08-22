@@ -1,19 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 //
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 //
-// IotaPanel is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// IotaPanel is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
-// You should have received a copy of the GNU General Public License
-// along with IotaPanel.  If not, see <https://www.gnu.org/licenses/>.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // HTTPS 网关插件：在面板前面终结 TLS（自签 / 已有证书 / Let's Encrypt ACME），
 // 把流量反代回面板的 HTTP 端口，让面板无需内置 TLS 即可获得 HTTPS 访问。
@@ -41,6 +40,7 @@ import (
 	"errors"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -111,7 +111,7 @@ func main() {
 		port = "19005"
 	}
 	bind := envOr("PLUGIN_BIND", "127.0.0.1")
-	statusSrv := &http.Server{Addr: bind + ":" + port, Handler: configHandler(dir, cfgPath), ReadHeaderTimeout: 10 * time.Second}
+	statusSrv := &http.Server{Addr: bind + ":" + port, Handler: configHandler(home, dir, cfgPath), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		log.Printf("[https-front] 配置服务就绪: %s（面板侧边栏「HTTPS 网关」可配置）", statusSrv.Addr)
 		if err := statusSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -171,8 +171,9 @@ func main() {
 }
 
 // configHandler 配置页与 API：GET / 页面；GET/POST /api/config 读写配置；
-// GET /api/status 运行状态。仅监听插件端口（经面板网关 /p/https-front/* 访问）。
-func configHandler(dir, cfgPath string) http.Handler {
+// GET /api/status 运行状态与面板监听检查；POST /api/panel-setup 一键收紧面板监听。
+// 仅监听插件端口（经面板网关 /p/https-front/* 访问）。
+func configHandler(home, dir, cfgPath string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		data, err := webFS.ReadFile("web/index.html")
@@ -220,12 +221,40 @@ func configHandler(dir, cfgPath string) http.Handler {
 			_ = yaml.Unmarshal(data, cfg)
 		}
 		normalize(cfg)
-		writeJSON(w, http.StatusOK, map[string]string{
-			"mode":        cfg.Mode,
-			"listen":      cfg.Listen,
-			"panel_addr":  cfg.PanelAddr,
-			"cert_expiry": certExpiry(dir, cfg),
+		env := readPanelEnv(home)
+		writeJSON(w, http.StatusOK, map[string]any{
+			"mode":              cfg.Mode,
+			"listen":            cfg.Listen,
+			"panel_addr":        cfg.PanelAddr,
+			"cert_expiry":       certExpiry(dir, cfg),
+			"panel_listen":      env["LISTEN_ADDR"],
+			"panel_trust_proxy": env["PANEL_TRUST_PROXY"] == "1",
+			"panel_exposed":     panelExposed(cfg.PanelAddr),
 		})
+	})
+	// 一键收紧：把面板监听改成仅本机 + 开启受信反代（写入面板 etc/.env，随后页面触发面板重启）
+	mux.HandleFunc("POST /api/panel-setup", func(w http.ResponseWriter, r *http.Request) {
+		cfg := &Config{}
+		if data, err := os.ReadFile(cfgPath); err == nil {
+			_ = yaml.Unmarshal(data, cfg)
+		}
+		normalize(cfg)
+		host, port, err := net.SplitHostPort(cfg.PanelAddr)
+		if err != nil || port == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "面板地址格式无效（应为 host:port）"})
+			return
+		}
+		_ = host // 一律收敛到回环，保证对外只有 HTTPS
+		listenAddr := "127.0.0.1:" + port
+		if err := setPanelEnv(home, map[string]string{
+			"LISTEN_ADDR":      listenAddr,
+			"PANEL_TRUST_PROXY": "1",
+		}); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "写入面板配置失败: " + err.Error()})
+			return
+		}
+		log.Printf("[https-front] 已写入面板 .env：LISTEN_ADDR=%s PANEL_TRUST_PROXY=1（需重启面板生效）", listenAddr)
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "listen_addr": listenAddr})
 	})
 	return mux
 }
@@ -351,6 +380,87 @@ func splitDomains(s string) []string {
 		}
 	}
 	return out
+}
+
+// readPanelEnv 读取面板 etc/.env 的键值（供状态页展示监听/信任配置）。
+func readPanelEnv(home string) map[string]string {
+	out := map[string]string{}
+	data, err := os.ReadFile(filepath.Join(home, "etc", ".env"))
+	if err != nil {
+		return out
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if k, v, ok := strings.Cut(line, "="); ok {
+			out[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"'`)
+		}
+	}
+	return out
+}
+
+// setPanelEnv 更新面板 etc/.env 中的键，保留其他行与注释；文件不存在则创建。
+func setPanelEnv(home string, kv map[string]string) error {
+	path := filepath.Join(home, "etc", ".env")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	var out []string
+	updated := map[string]bool{}
+	if data, err := os.ReadFile(path); err == nil {
+		for _, ln := range strings.Split(string(data), "\n") {
+			key := ""
+			trimmed := strings.TrimSpace(ln)
+			if !strings.HasPrefix(trimmed, "#") {
+				if k, _, ok := strings.Cut(trimmed, "="); ok {
+					key = strings.TrimSpace(k)
+				}
+			}
+			if v, ok := kv[key]; ok {
+				out = append(out, key+"="+v)
+				updated[key] = true
+				continue
+			}
+			out = append(out, ln)
+		}
+	}
+	for k, v := range kv {
+		if !updated[k] {
+			out = append(out, k+"="+v)
+		}
+	}
+	return os.WriteFile(path, []byte(strings.Join(out, "\n")+"\n"), 0o600)
+}
+
+// panelExposed 探测面板是否在非回环网卡上可达（HTTP 对外暴露）。
+// 逐个尝试连接本机非回环 IPv4 地址上的面板端口，任一成功即判定暴露。
+func panelExposed(panelAddr string) bool {
+	_, port, err := net.SplitHostPort(panelAddr)
+	if err != nil || port == "" {
+		return false
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, a := range addrs {
+		ipn, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ip := ipn.IP.To4()
+		if ip == nil || ip.IsLoopback() {
+			continue
+		}
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip.String(), port), 500*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return true
+		}
+	}
+	return false
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

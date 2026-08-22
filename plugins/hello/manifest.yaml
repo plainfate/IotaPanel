@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 plainfate <https://github.com/plainfate>
 # 插件元信息（manifest.yaml）
 # 本插件展示「极简保活」：Go 实现，常驻约 7MB（早期 Python 版 37MB）。
