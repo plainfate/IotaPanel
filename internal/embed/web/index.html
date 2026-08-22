@@ -2,7 +2,7 @@
 <!--
   SPDX-License-Identifier: GPL-3.0-or-later
   Copyright (C) 2026 plainfate <https://github.com/plainfate>
-  MicroPanel 主界面：
+  IotaPanel 主界面：
   - 侧边栏：插件菜单（由 manifest.yaml 注入）+ 商城/设置/关于
   - 主区域：插件页面通过 iframe 嵌入（反向代理 /p/<插件名>/*，地址栏不跳转）
   - 抽屉：插件详情（保活开关、启停、日志、卸载）
@@ -11,7 +11,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MicroPanel</title>
+<title>IotaPanel</title>
 <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
 <div id="app">
   <!-- ===== 侧边栏 ===== -->
   <aside id="sidebar">
-    <div class="brand"><span>☁️</span> MicroPanel</div>
+    <div class="brand"><span>☁️</span> iotapanel</div>
     <div class="nav-scroll">
       <!-- 已安装插件的菜单动态注入到这里 -->
       <div id="plugin-nav"></div>
@@ -150,7 +150,7 @@
         <h3>⚙️ <span data-i18n="soTitle"></span></h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-danger" id="btn-restart" data-i18n="soRestart"></button>
-          <span class="muted" style="font-size:12px">等价于命令行 <code style="font-family:ui-monospace,monospace">panel restart</code>（或 systemctl restart micropanel）</span>
+          <span class="muted" style="font-size:12px">等价于命令行 <code style="font-family:ui-monospace,monospace">panel restart</code>（或 systemctl restart iotapanel）</span>
         </div>
         <h4 style="margin:16px 0 8px;font-size:13px;color:var(--muted)" data-i18n="soCoreLog"></h4>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">

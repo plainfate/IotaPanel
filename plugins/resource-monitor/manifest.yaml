@@ -4,7 +4,7 @@
 name: resource-monitor
 title: 资源监控
 version: 0.1.0
-author: MicroPanel 官方
+author: IotaPanel 官方
 description: 实时查看 CPU、内存、负载与磁盘使用情况
 language: go
 command: bin/resource-monitor

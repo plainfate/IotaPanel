@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 plainfate <https://github.com/plainfate>
 # ============================================================
-# MicroPanel 构建脚本
+# IotaPanel 构建脚本
 #
 # 步骤：
 #   1. 编译示例插件（Go 插件 → 单个二进制；任意语言插件均可）
@@ -21,7 +21,7 @@ GO="${GO:-go}"
 OUT=bin
 
 # 默认插件（Linux/macOS 全量；Windows 目标由 package.sh 显式传入）
-PLUGINS="${PLUGINS:-file-manager resource-monitor hello terminal}"
+PLUGINS="${PLUGINS:-file-manager resource-monitor hello terminal https-front}"
 
 echo "[1/4] 清理旧的内嵌插件包…"
 rm -rf internal/embed/plugins

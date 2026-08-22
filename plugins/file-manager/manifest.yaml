@@ -5,7 +5,7 @@
 name: file-manager
 title: 文件管理
 version: 0.1.0
-author: MicroPanel 官方
+author: IotaPanel 官方
 description: 浏览、上传、下载、删除服务器文件
 language: go
 command: bin/file-manager   # 相对本插件目录的可执行入口

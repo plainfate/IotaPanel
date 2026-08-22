@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 plainfate <https://github.com/plainfate>
 # ============================================================
-# MicroPanel 发布打包脚本（多平台）
+# IotaPanel 发布打包脚本（多平台）
 #
 # 用法:
 #   ./package.sh                              # 打包全部平台: linux-amd64 linux-arm64 windows-amd64 darwin-amd64
@@ -10,9 +10,9 @@
 #   ./package.sh --version 0.3.0              # 自定义版本号
 #
 # 产物（dist/）:
-#   micropanel-<版本>-linux-<amd64|arm64>.tar.gz        # 含 install.sh（一键安装）
-#   micropanel-<版本>-windows-amd64.tar.gz             # 纯二进制 + 说明
-#   micropanel-<版本>-darwin-amd64.tar.gz              # 纯二进制 + 说明
+#   iotapanel-<版本>-linux-<amd64|arm64>.tar.gz        # 含 install.sh（一键安装）
+#   iotapanel-<版本>-windows-amd64.tar.gz             # 纯二进制 + 说明
+#   iotapanel-<版本>-darwin-amd64.tar.gz              # 纯二进制 + 说明
 #   各平台附带 .sha256 校验文件
 #
 # 说明: 各平台内嵌插件不同（依赖 unix 系统调用的插件不参与 Windows 构建）
@@ -63,8 +63,8 @@ mkdir -p dist
 #   windows: 仅纯标准库插件
 plugin_list() {
   case "$1" in
-    linux-*)   echo "file-manager resource-monitor hello terminal" ;;
-    darwin-*)  echo "file-manager resource-monitor hello" ;;
+    linux-*)   echo "file-manager resource-monitor hello terminal https-front" ;;
+    darwin-*)  echo "file-manager resource-monitor hello https-front" ;;
     windows-*) echo "hello" ;;
     *)         echo "file-manager resource-monitor hello" ;;
   esac
@@ -83,7 +83,7 @@ pack_platform() {
     echo "编译失败，日志如下："; tail -20 "/tmp/mp-build-$os_arch.log"; exit 1
   fi
 
-  local NAME="micropanel-${VERSION}-${os}-${arch}"
+  local NAME="iotapanel-${VERSION}-${os}-${arch}"
   local PKG="dist/$NAME"
   rm -rf "$PKG"
   mkdir -p "$PKG/bin"
@@ -99,7 +99,7 @@ pack_platform() {
   else
     # 非 Linux 平台附上使用说明
     cat > "$PKG/README.$os.md" <<EOF
-# MicroPanel ${VERSION} (${os}/${arch})
+# IotaPanel ${VERSION} (${os}/${arch})
 
 非 Linux 平台的简化版：核心功能完整（认证、网关、插件进程管理），
 但仅内置兼容本平台的插件（${plugins// /、}）。
@@ -124,7 +124,7 @@ done
 # 恢复本机架构的 bin/panel（避免交叉编译产物留在本地无法运行）
 echo ""
 echo "==> 恢复本机架构 ($NATIVE_ARCH) 的 bin/panel …"
-GOOS=linux GOARCH="$NATIVE_ARCH" PLUGINS="file-manager resource-monitor hello terminal" ./build.sh > /tmp/mp-build-native.log 2>&1 || true
+GOOS=linux GOARCH="$NATIVE_ARCH" PLUGINS="file-manager resource-monitor hello terminal https-front" ./build.sh > /tmp/mp-build-native.log 2>&1 || true
 
 echo ""
 echo "✅ 打包完成，产物位于 dist/"

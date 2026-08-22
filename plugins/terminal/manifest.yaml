@@ -6,7 +6,7 @@
 name: terminal
 title: 终端
 version: 0.1.0
-author: MicroPanel 官方
+author: IotaPanel 官方
 description: 网页终端（Linux 专用，轻量：约 6MB 常驻）
 language: go
 command: bin/terminal

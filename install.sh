@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 plainfate <https://github.com/plainfate>
 # ============================================================
-# MicroPanel 一键安装脚本
+# IotaPanel 一键安装脚本
 #
 # 用法（最常见）:
 #   bash install.sh -d /data/panel
@@ -32,7 +32,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<EOF
-MicroPanel 一键安装脚本
+IotaPanel 一键安装脚本
 
 用法:
   bash install.sh -d /data/panel [--port 8787] [--no-systemd] [--url URL]
@@ -82,7 +82,7 @@ if [ -n "$DOWNLOAD_URL" ]; then
   BIN_SRC="remote(${DOWNLOAD_URL%%/*})"
   case "$DOWNLOAD_URL" in
     *.tar.gz|*.tgz)
-      # 发布包形式：micropanel-<版本>-linux-<架构>.tar.gz
+      # 发布包形式：iotapanel-<版本>-linux-<架构>.tar.gz
       echo "==> 下载发布包: $DOWNLOAD_URL"
       TMP="$(mktemp -d)"
       curl -fsSL -o "$TMP/pkg.tar.gz" "$DOWNLOAD_URL"
@@ -133,7 +133,7 @@ ENV_FILE="$INSTALL_DIR/etc/.env"
 if [ ! -f "$ENV_FILE" ]; then
   JWT_SECRET="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   cat > "$ENV_FILE" <<EOF
-# MicroPanel 环境配置（升级时不会覆盖本文件）
+# IotaPanel 环境配置（升级时不会覆盖本文件）
 # LISTEN_ADDR 可用:
 #   :$PORT        全部网卡, IPv4+IPv6 双栈（默认）
 #   0.0.0.0:$PORT 仅 IPv4 全接口
@@ -150,11 +150,11 @@ fi
 
 # ---------- 注册 systemd 服务 ----------
 if [ "$USE_SYSTEMD" = "1" ] && command -v systemctl >/dev/null 2>&1; then
-  UNIT=/etc/systemd/system/micropanel.service
+  UNIT=/etc/systemd/system/iotapanel.service
   cat > "$UNIT" <<EOF
-# MicroPanel systemd 单元（由 install.sh 生成）
+# IotaPanel systemd 单元（由 install.sh 生成）
 [Unit]
-Description=MicroPanel - 极简微内核服务器面板
+Description=IotaPanel - 极简微内核服务器面板
 After=network.target
 
 [Service]
@@ -170,9 +170,9 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 EOF
   systemctl daemon-reload
-  systemctl enable micropanel >/dev/null 2>&1 || true
-  systemctl restart micropanel
-  echo "==> systemd 服务已注册并启动: micropanel"
+  systemctl enable iotapanel >/dev/null 2>&1 || true
+  systemctl restart iotapanel
+  echo "==> systemd 服务已注册并启动: iotapanel"
 else
   echo "==> 未注册 systemd，可手动启动: $INSTALL_DIR/bin/panel"
 fi
@@ -184,7 +184,7 @@ echo "==> 已创建命令: panel（任意目录可执行 panel start/stop/restar
 # ---------- 完成 ----------
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo ""
-echo "✅ MicroPanel 安装完成（二进制来源: $BIN_SRC）"
+echo "✅ IotaPanel 安装完成（二进制来源: $BIN_SRC）"
 echo "   访问地址: http://${IP:-127.0.0.1}:$PORT"
 echo "   首次访问将进入初始化向导（设置管理员账号 + 勾选基础插件）"
 echo "   配置文件: $ENV_FILE"

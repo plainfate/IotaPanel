@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 /* ============================================================
-   MicroPanel 国际化（中英双语）
+   IotaPanel 国际化（中英双语）
    用法：
      setLang(code)  切换语言（自动翻译 [data-i18n] 元素）
      t('key')       取当前语言的字符串（app.js 动态内容用）
@@ -29,12 +29,12 @@ const I18N = {
   acSavePolicy:'保存策略', acSessions:'登录会话（可强制下线）', acRevokeAll:'下线其他全部会话', acRevoke:'强制下线',
   acTime:'登录时间', acIp:'IP', acBrowser:'浏览器', acAction:'操作',
   svTitle:'面板服务', svListenPort:'监听端口（保存后重启生效）', svSavePort:'保存端口', svInstallDir:'安装目录（PANEL_HOME）', svCurrentListen:'当前监听地址',
-  soTitle:'系统操作', soRestart:'重启面板', soRestartHint:'等价于命令行 panel restart（或 systemctl restart micropanel）',
+  soTitle:'系统操作', soRestart:'重启面板', soRestartHint:'等价于命令行 panel restart（或 systemctl restart iotapanel）',
   soCoreLog:'核心日志（logs/panel.log）', soRefreshLog:'刷新日志',
   ppTitle:'插件策略', ppIdleTimeout:'空闲退出时间（分钟）', ppSave:'保存', ppPortMapFile:'端口映射文件', ppPortPool:'端口池',
   ppPortMapTable:'端口映射表（port-map.json）', ppPlugin:'插件', ppPort:'端口', ppPid:'PID', ppStartedAt:'启动时间',
   drKeepalive:'后台保活', drStart:'启动', drStop:'停止', drRestart:'重启', drLog:'插件日志', drUninstall:'卸载插件', drDanger:'危险操作',
-  abTitle:'关于 MicroPanel', abSub:'极简微内核 · 进程级隔离 · 按需启动 —— 服务器领域的「Chrome 浏览器」。',
+  abTitle:'关于 IotaPanel', abSub:'极简微内核 · 进程级隔离 · 按需启动 —— 服务器领域的「Chrome 浏览器」。',
   lgTitle:'登录', lgUsername:'用户名', lgPassword:'密码', lgRemember:'记住我（30 天内免登录）', lgBtn:'登 录',
   spWelcome:'首次使用，请创建你自己的管理员账号（系统无默认账号）', spStep1:'创建你的管理员账号',
   spUsernamePh:'设置你的用户名（至少 3 个字符）', spPasswordPh:'至少 6 位', spConfirmPw:'确认密码',
@@ -58,12 +58,12 @@ const I18N = {
   acSavePolicy:'Save policy', acSessions:'Sessions (revocable)', acRevokeAll:'Sign out all other sessions', acRevoke:'Revoke',
   acTime:'Login time', acIp:'IP', acBrowser:'Browser', acAction:'Action',
   svTitle:'Panel Service', svListenPort:'Listen port (restart to apply)', svSavePort:'Save port', svInstallDir:'Install dir (PANEL_HOME)', svCurrentListen:'Current listen addr',
-  soTitle:'System Actions', soRestart:'Restart panel', soRestartHint:'Same as panel restart (or systemctl restart micropanel)',
+  soTitle:'System Actions', soRestart:'Restart panel', soRestartHint:'Same as panel restart (or systemctl restart iotapanel)',
   soCoreLog:'Core log (logs/panel.log)', soRefreshLog:'Refresh log',
   ppTitle:'Plugin Policy', ppIdleTimeout:'Idle exit time (minutes)', ppSave:'Save', ppPortMapFile:'Port map file', ppPortPool:'Port pool',
   ppPortMapTable:'Port map (port-map.json)', ppPlugin:'Plugin', ppPort:'Port', ppPid:'PID', ppStartedAt:'Started at',
   drKeepalive:'Keep alive', drStart:'Start', drStop:'Stop', drRestart:'Restart', drLog:'Plugin log', drUninstall:'Uninstall', drDanger:'Danger zone',
-  abTitle:'About MicroPanel', abSub:'Microkernel · process isolation · lazy start — the "Chrome browser" for servers.',
+  abTitle:'About IotaPanel', abSub:'Microkernel · process isolation · lazy start — the "Chrome browser" for servers.',
   lgTitle:'Sign in', lgUsername:'Username', lgPassword:'Password', lgRemember:'Remember me (30 days)', lgBtn:'Sign in',
   spWelcome:'Create your own admin account (no default account)', spStep1:'Create your admin account',
   spUsernamePh:'Pick a username (min 3 chars)', spPasswordPh:'min 6 chars', spConfirmPw:'Confirm password',

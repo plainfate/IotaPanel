@@ -2,20 +2,20 @@
 //
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 //
-// MicroPanel is free software: you can redistribute it and/or modify
+// IotaPanel is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// MicroPanel is distributed in the hope that it will be useful,
+// IotaPanel is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+// along with IotaPanel.  If not, see <https://www.gnu.org/licenses/>.
 
-// MicroPanel 面板核心入口。
+// IotaPanel 面板核心入口。
 //
 // 极简微内核：仅负责用户认证、反向代理网关、插件进程管理。
 // 常驻内存小，插件按需冷启动、空闲自动退出。
@@ -35,10 +35,10 @@ import (
 	"syscall"
 	"time"
 
-	"micropanel/internal/api"
-	"micropanel/internal/config"
-	"micropanel/internal/db"
-	"micropanel/internal/plugins"
+	"iotapanel/internal/api"
+	"iotapanel/internal/config"
+	"iotapanel/internal/db"
+	"iotapanel/internal/plugins"
 )
 
 // syncPluginsFromDir 扫描 PANEL_HOME/plugins/ 下的插件目录，
@@ -82,7 +82,7 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "-version", "--version", "-v", "version":
-			fmt.Printf("MicroPanel %s\n", config.Version)
+			fmt.Printf("IotaPanel %s\n", config.Version)
 			os.Exit(0)
 		case "start", "stop", "restart", "uninstall", "status", "log", "help", "-h", "--help":
 			runCLI(os.Args[1:])
@@ -124,7 +124,7 @@ func main() {
 
 	// 记录安装目录标记：非 systemd 环境下 `panel start` 用它恢复 PANEL_HOME
 	// 0600 + 读取端校验 etc/.env，降低本地伪造标记的风险
-	_ = os.WriteFile("/tmp/micropanel-home", []byte(cfg.Home+"\n"), 0o600)
+	_ = os.WriteFile("/tmp/iotapanel-home", []byte(cfg.Home+"\n"), 0o600)
 
 	database, err := db.Open(cfg.Home)
 	if err != nil {
@@ -167,7 +167,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	logger.Info("MicroPanel 启动",
+	logger.Info("IotaPanel 启动",
 		"version", config.Version,
 		"addr", cfg.ListenAddr,
 		"home", cfg.Home,

@@ -1,8 +1,11 @@
-# MicroPanel（微面板）
+# IotaPanel（微面板）
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8.svg)](https://go.dev/)
-[![GitHub](https://img.shields.io/badge/GitHub-plainfate%2FMicroPanel-181717.svg?logo=github)](https://github.com/plainfate/MicroPanel)
+[![GitHub](https://img.shields.io/badge/GitHub-plainfate%2FIotaPanel-181717.svg?logo=github)](https://github.com/plainfate/IotaPanel)
+
+> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 GPL-3.0 许可证。
+> 安装包随更名同步改为 `iotapanel-*`（新版本发布后下载链接生效）。
 
 > **极简微内核 + 进程级隔离 + 按需启动** 的 Linux 服务器应用框架。
 > 它不是传统面板，而是服务器领域的「Chrome 浏览器」——核心只负责开窗口（网关），网页（功能）由社区插件无限创造。
@@ -38,7 +41,7 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 ```
 
 > **监听地址说明**：`LISTEN_ADDR` 支持三种写法——`:8787` 全部网卡（IPv4+IPv6 双栈，默认）、`0.0.0.0:8787` 仅 IPv4、`127.0.0.1:8787` 仅本机。
-> 改监听地址（已通过 install.sh 安装时）：编辑安装目录 `etc/.env` 中的 `LISTEN_ADDR`，然后 `systemctl restart micropanel`。
+> 改监听地址（已通过 install.sh 安装时）：编辑安装目录 `etc/.env` 中的 `LISTEN_ADDR`，然后 `systemctl restart iotapanel`。
 
 ### 3. 正式安装（从 GitHub Release 安装，路径自定义）
 
@@ -49,24 +52,24 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 
 **第 1 步：下载对应架构的安装包**
 下面以 Linux ARM64 为例。其他平台把文件名换成：
-- Linux x86_64 → `micropanel-0.3.2-linux-amd64.tar.gz`
-- Windows → `micropanel-0.3.2-windows-amd64.tar.gz`
-- macOS → `micropanel-0.3.2-darwin-amd64.tar.gz`
+- Linux x86_64 → `iotapanel-0.3.3-linux-amd64.tar.gz`
+- Windows → `iotapanel-0.3.3-windows-amd64.tar.gz`
+- macOS → `iotapanel-0.3.3-darwin-amd64.tar.gz`
 
 ```bash
-curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.2/micropanel-0.3.2-linux-arm64.tar.gz
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.3/iotapanel-0.3.3-linux-arm64.tar.gz
 ```
 
 **第 2 步：解压**
 
 ```bash
-tar xzf micropanel-0.3.2-linux-arm64.tar.gz
+tar xzf iotapanel-0.3.3-linux-arm64.tar.gz
 ```
 
 **第 3 步：进入解压目录**
 
 ```bash
-cd micropanel-0.3.2-linux-arm64
+cd iotapanel-0.3.3-linux-arm64
 ```
 
 **第 4 步：运行安装脚本**（默认装到 /data/panel 并注册 systemd 自动启动）
@@ -83,22 +86,22 @@ bash install.sh --no-systemd             # 只部署，不注册 systemd
 Linux（两种架构任选其一）：
 
 ```bash
-bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.2/micropanel-0.3.2-linux-arm64.tar.gz   # ARM64
-bash install.sh -d /data/panel --url https://github.com/plainfate/MicroPanel/releases/download/v0.3.2/micropanel-0.3.2-linux-amd64.tar.gz   # x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.3/iotapanel-0.3.3-linux-arm64.tar.gz   # ARM64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.3/iotapanel-0.3.3-linux-amd64.tar.gz   # x86_64
 ```
 
 Windows / macOS 包内**没有 install.sh**，需手动解压后直接运行：
 
 ```bash
 # Windows x64
-curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.2/micropanel-0.3.2-windows-amd64.tar.gz
-tar xzf micropanel-0.3.2-windows-amd64.tar.gz   # 或右键「全部解压」
-cd micropanel-0.3.2-windows-amd64 && bin\panel.exe
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.3/iotapanel-0.3.3-windows-amd64.tar.gz
+tar xzf iotapanel-0.3.3-windows-amd64.tar.gz   # 或右键「全部解压」
+cd iotapanel-0.3.3-windows-amd64 && bin\panel.exe
 
 # macOS x64
-curl -fLO https://github.com/plainfate/MicroPanel/releases/download/v0.3.2/micropanel-0.3.2-darwin-amd64.tar.gz
-tar xzf micropanel-0.3.2-darwin-amd64.tar.gz
-cd micropanel-0.3.2-darwin-amd64 && bin/panel
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.3/iotapanel-0.3.3-darwin-amd64.tar.gz
+tar xzf iotapanel-0.3.3-darwin-amd64.tar.gz
+cd iotapanel-0.3.3-darwin-amd64 && bin/panel
 ```
 
 #### 方式三：本地构建后安装（仅开发者/内测）
@@ -115,17 +118,17 @@ cd micropanel-0.3.2-darwin-amd64 && bin/panel
 ```bash
 ./package.sh                              # 打包全部平台: linux-amd64 linux-arm64 windows-amd64 darwin-amd64
 ./package.sh --targets linux-amd64,linux-arm64   # 只打指定平台
-./package.sh --version 0.3.2              # 自定义版本号
+./package.sh --version 0.3.3              # 自定义版本号
 ```
 
 产物（`dist/`，附 `.sha256`）：
 
 | 包 | 平台 | 内容 |
 |---|---|---|
-| `micropanel-<版本>-linux-amd64.tar.gz` | x86_64 Linux | 全部插件（含终端）+ install.sh |
-| `micropanel-<版本>-linux-arm64.tar.gz` | ARM64 Linux | 全部插件（含终端）+ install.sh |
-| `micropanel-<版本>-windows-amd64.tar.gz` | x64 Windows | 核心 + Hello（纯标准库） |
-| `micropanel-<版本>-darwin-amd64.tar.gz` | x64 macOS | 核心 + 基础插件 |
+| `iotapanel-<版本>-linux-amd64.tar.gz` | x86_64 Linux | 全部插件（含终端）+ install.sh |
+| `iotapanel-<版本>-linux-arm64.tar.gz` | ARM64 Linux | 全部插件（含终端）+ install.sh |
+| `iotapanel-<版本>-windows-amd64.tar.gz` | x64 Windows | 核心 + Hello（纯标准库） |
+| `iotapanel-<版本>-darwin-amd64.tar.gz` | x64 macOS | 核心 + 基础插件 |
 
 > 安装方法见上文「3. 正式安装」；Windows / macOS 包不含 install.sh，解压后直接运行 `bin/panel(.exe)`，首次访问走 Web 初始化向导。
 
@@ -136,6 +139,26 @@ cd micropanel-0.3.2-darwin-amd64 && bin/panel
 3. 插件详情（点侧边栏插件名旁的 ⚙）：保活开关、启动/停止/重启、日志、卸载。
 4. 「插件」页可从 URL / GitHub Release 安装插件包（粘贴 URL，可选填 SHA256 自动校验），手动放入 plugins/ 目录亦会自动登记。
 5. 设置页可调整「空闲退出时间」（默认 5 分钟）并查看 port-map.json 端口映射表。
+
+### 6. 启用 HTTPS（可选，内置 https-front 插件）
+
+面板内置 **https-front** 插件做 HTTPS 入口（TLS 终结 + 反代回面板），支持三种证书方式：自签（开箱即用）/ 已有证书 / Let's Encrypt 自动签发续期（ACME）。
+
+```bash
+# 1. 面板改为仅本机监听 + 受信反代模式（编辑 <安装目录>/etc/.env 后重启面板）
+LISTEN_ADDR=127.0.0.1:8787
+PANEL_TRUST_PROXY=1
+
+# 2. 面板「插件」页启动 HTTPS 网关（默认保活常驻），首次运行自动生成配置
+#    <安装目录>/etc/https-front/config.yaml
+
+# 3. 按需修改配置选择证书方式：
+#    - selfsigned（默认）：开箱即用，浏览器有证书警告
+#    - cert：填 cert_file/key_file 用已有证书（如 certbot）
+#    - acme：填 domain/email 自动申请 Let's Encrypt（需公网 80 端口入站）
+
+# 4. 浏览器访问 https://<服务器>:8443（或配置的端口）
+```
 
 ---
 
@@ -180,7 +203,7 @@ cd micropanel-0.3.2-darwin-amd64 && bin/panel
 1. **默认休眠**：开机只运行核心，所有插件进程都不启动。
 2. **冷启动（端口认领）**：请求 `/p/<name>/` 时核心同步拉起插件进程：
    - 在端口池（默认 19000-19999）选一个空闲端口；
-   - 注入环境变量 `PLUGIN_PORT`、`PLUGIN_BIND`、`PLUGIN_NAME`、`PANEL_HOME`、`MICROPANEL_VERSION`；
+   - 注入环境变量 `PLUGIN_PORT`、`PLUGIN_BIND`、`PLUGIN_NAME`、`PANEL_HOME`、`IOTAPANEL_VERSION`；
    - 执行 manifest 里的 `command`，轮询等待端口就绪（约 1-2 秒）；
    - 写入 `port-map.json`。
 3. **空闲退出**：插件无请求超过 `IDLE_TIMEOUT`（默认 5 分钟）即被回收。实现为**事件驱动**：每次请求重置计时器，无常驻巡检协程、无心跳轮询，开销压到最低。
@@ -225,7 +248,7 @@ menus:                   # 注入侧边栏的菜单（可多个）
 | `PLUGIN_BIND` | 监听地址（= manifest.bind） |
 | `PLUGIN_NAME` | 插件名 |
 | `PANEL_HOME` | 面板安装目录 |
-| `MICROPANEL_VERSION` | 核心版本 |
+| `IOTAPANEL_VERSION` | 核心版本 |
 
 > **安全默认**：插件默认只监听 `127.0.0.1`——外部流量只能走面板网关（`/p/<插件名>/*`），插件不直接暴露。
 > 若插件需要对外直连（如邮件服务的 SMTP 端口、Webhook 回调），在 manifest 中把 `bind` 改为 `0.0.0.0` 或具体网卡 IP 即可。
@@ -269,7 +292,7 @@ panel version     # 版本号
 panel help        # 帮助
 ```
 
-systemd 安装时 `start`/`stop`/`restart` 等价于 `systemctl {start,stop,restart} micropanel`；`status`/`log` 仍直接读取面板自身，无需 systemctl。
+systemd 安装时 `start`/`stop`/`restart` 等价于 `systemctl {start,stop,restart} iotapanel`；`status`/`log` 仍直接读取面板自身，无需 systemctl。
 登录安全：**单账号单会话**（新登录自动踢掉旧会话）；登录页可勾选「**记住我**」（30 天免登录），不勾选则为会话级（关浏览器即需重新登录）。
 
 ---
@@ -303,7 +326,7 @@ systemd 安装时 `start`/`stop`/`restart` 等价于 `systemctl {start,stop,rest
 
 ## 与主流面板的本质区别
 
-| 维度 | 主流面板 | MicroPanel |
+| 维度 | 主流面板 | iotapanel |
 |---|---|---|
 | 核心职责 | 集成所有功能 | 仅网关 + 进程调度 |
 | 安装位置 | 强制固定目录 | 安装时任意选择 |

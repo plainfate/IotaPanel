@@ -2,18 +2,18 @@
 //
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 //
-// MicroPanel is free software: you can redistribute it and/or modify
+// IotaPanel is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// MicroPanel is distributed in the hope that it will be useful,
+// IotaPanel is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+// along with IotaPanel.  If not, see <https://www.gnu.org/licenses/>.
 
 package main
 
@@ -31,10 +31,10 @@ import (
 	"strings"
 	"time"
 
-	"micropanel/internal/config"
+	"iotapanel/internal/config"
 )
 
-const serviceName = "micropanel"
+const serviceName = "iotapanel"
 
 // runCLI 处理 start/stop/restart/status/log 等子命令后退出。
 func runCLI(args []string) {
@@ -64,7 +64,7 @@ func runCLI(args []string) {
 }
 
 func printCLIHelp() {
-	fmt.Println(`MicroPanel 面板控制命令
+	fmt.Println(`IotaPanel 面板控制命令
 
 用法:
   panel start      启动面板（systemd 安装时走 systemctl）
@@ -85,7 +85,7 @@ func cliUninstall() {
 	if home == "" {
 		home = "/data/panel"
 	}
-	fmt.Println("即将卸载 MicroPanel")
+	fmt.Println("即将卸载 IotaPanel")
 	fmt.Println("安装目录:", home)
 	fmt.Print("确认卸载？（停止面板并移除 systemd 服务，数据目录将保留）[y/N]: ")
 	var ans string
@@ -150,7 +150,7 @@ func cliStart() {
 	}
 	// 恢复 PANEL_HOME：环境变量 > 运行中进程 > 二进制位置推导 > 标记文件（兜底）
 	// 优先级顺序保证标准布局（<安装目录>/bin/panel）不被其它实例留下的
-	// /tmp/micropanel-home 标记误导到错误的安装目录。
+	// /tmp/iotapanel-home 标记误导到错误的安装目录。
 	if os.Getenv("PANEL_HOME") == "" {
 		if home := resolveHome(); home != "" {
 			os.Setenv("PANEL_HOME", home)
@@ -162,7 +162,7 @@ func cliStart() {
 		fmt.Println("无法定位自身二进制:", err)
 		os.Exit(1)
 	}
-	logFile, _ := os.OpenFile("/tmp/micropanel.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	logFile, _ := os.OpenFile("/tmp/iotapanel.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	cmd := exec.Command("nohup", exe, "serve")
 	cmd.Env = os.Environ()
 	cmd.Stdout, cmd.Stderr = logFile, logFile
@@ -170,7 +170,7 @@ func cliStart() {
 		fmt.Println("启动失败:", err)
 		os.Exit(1)
 	}
-	fmt.Println("✅ 已启动（非 systemd，日志: /tmp/micropanel.log）")
+	fmt.Println("✅ 已启动（非 systemd，日志: /tmp/iotapanel.log）")
 }
 
 func cliStop() {
@@ -249,7 +249,7 @@ func resolveHome() string {
 	}
 	// 兜底：二进制不在 <安装目录>/bin 布局时，用上次运行留下的标记文件。
 	// 只采信看起来是真实面板安装的目录（含 etc/.env），防本地用户伪造标记劫持 root 面板。
-	if data, err := os.ReadFile("/tmp/micropanel-home"); err == nil {
+	if data, err := os.ReadFile("/tmp/iotapanel-home"); err == nil {
 		if home := strings.TrimSpace(string(data)); home != "" {
 			if _, err := os.Stat(filepath.Join(home, "etc", ".env")); err == nil {
 				return home
@@ -260,7 +260,7 @@ func resolveHome() string {
 }
 
 func cliStatus() {
-	fmt.Printf("MicroPanel %s\n", config.Version)
+	fmt.Printf("IotaPanel %s\n", config.Version)
 	home := resolveHome()
 	// 运行中进程的真实监听地址优先
 	env := runningPanelEnv()

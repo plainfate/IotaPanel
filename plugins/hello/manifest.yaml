@@ -6,7 +6,7 @@
 name: hello
 title: Hello 演示
 version: 0.2.0
-author: MicroPanel 官方
+author: IotaPanel 官方
 description: 极简保活示例（Go，常驻约 7MB）
 language: go
 command: bin/hello        # 入口可以是任意可执行文件/脚本

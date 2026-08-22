@@ -2,18 +2,18 @@
 //
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 //
-// MicroPanel is free software: you can redistribute it and/or modify
+// IotaPanel is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// MicroPanel is distributed in the hope that it will be useful,
+// IotaPanel is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+// along with IotaPanel.  If not, see <https://www.gnu.org/licenses/>.
 
 // Package config 负责加载面板核心的运行时配置。
 // 配置来源：环境变量 -> PANEL_HOME/etc/.env（环境变量优先）。
@@ -31,7 +31,7 @@ import (
 )
 
 // Version 面板核心版本号（可用 ldflags 覆盖）。
-const Version = "0.3.2"
+const Version = "0.3.3"
 
 type Config struct {
 	Home        string        // PANEL_HOME 安装目录（用户自定义，不强制 /opt）

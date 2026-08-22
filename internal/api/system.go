@@ -2,18 +2,18 @@
 //
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 //
-// MicroPanel is free software: you can redistribute it and/or modify
+// IotaPanel is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// MicroPanel is distributed in the hope that it will be useful,
+// IotaPanel is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with MicroPanel.  If not, see <https://www.gnu.org/licenses/>.
+// along with IotaPanel.  If not, see <https://www.gnu.org/licenses/>.
 
 package api
 
@@ -29,7 +29,7 @@ import (
 )
 
 // handleSystemRestart 触发面板重启（异步）：
-//   - systemd 安装：systemctl restart micropanel
+//   - systemd 安装：systemctl restart iotapanel
 //   - 非 systemd：调用自身 CLI restart（停止旧进程 + 分离式重拉）
 func (s *Server) handleSystemRestart(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "msg": "重启已触发，约 2 秒后恢复，请稍后刷新页面"})

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 plainfate <https://github.com/plainfate>
 /* ============================================================
-   MicroPanel 主界面逻辑（纯原生 JavaScript）
+   IotaPanel 主界面逻辑（纯原生 JavaScript）
    ============================================================ */
 
 /* ---------- 通用工具 ---------- */
@@ -168,7 +168,7 @@ function bindGlobalEvents() {
     if (isNaN(p) || p < 1 || p > 65535) return toast('端口需在 1-65535 之间', 'err');
     try {
       const d = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ listen_port: p }) });
-      toast(d.need_restart ? '端口已保存，重启面板后生效（systemctl restart micropanel）' : '已保存');
+      toast(d.need_restart ? '端口已保存，重启面板后生效（systemctl restart iotapanel）' : '已保存');
     } catch (e) { toast(e.message, 'err'); }
   });
   // 远程 URL 安装插件

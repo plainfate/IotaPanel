@@ -1,8 +1,10 @@
-# MicroPanel 开发文档（保姆级）
+# IotaPanel 开发文档（保姆级）
 
 > 本文面向第一次接触本项目的开发者，从零开始：准备环境 → 跑起来 → 理解框架 → 开发插件 → 发布。
 > 通篇使用可直接复制执行的命令与完整可运行的代码示例，并解释每一步**为什么这么做**。
 > 若你只是想安装/使用面板，看 [README.md](README.md) 即可；本文假设你打算**改代码或写插件**。
+>
+> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 GPL-3.0 许可证。
 
 ---
 
@@ -44,8 +46,8 @@ gzip --version
 ## 2. 五分钟跑起来
 
 ```bash
-git clone git@github.com:plainfate/MicroPanel.git
-cd MicroPanel
+git clone git@github.com:plainfate/IotaPanel.git
+cd IotaPanel
 
 # 1. 构建（编译 4 个官方插件并内嵌 + 编译核心 → bin/panel）
 ./build.sh
@@ -95,7 +97,7 @@ go test ./...
 ### 3.2 目录结构
 
 ```text
-MicroPanel/
+IotaPanel/
 ├── cmd/panel/                # 核心入口（main.go + cli.go）
 ├── internal/
 │   ├── config/               # 配置：.env / 环境变量解析
@@ -127,7 +129,7 @@ MicroPanel/
 1. **解析命令行**：`panel version/start/stop/restart/status/log/uninstall/help` 走 `runCLI`；`panel serve`（或没有参数）才真正启动服务。**未知参数会报错退出**（不要当成服务启动）。
 2. **设置内存上限**：`GOMEMLIMIT=48MB`（可用环境变量覆盖），防止突发请求撑大常驻内存。
 3. **加载配置** `config.Load()`：确定 `PANEL_HOME` → 读 `.env` → 组装配置（监听地址、JWT 密钥、空闲超时、端口池）。
-4. **写运行标记** `/tmp/micropanel-home`（0600 权限），供非 systemd 下 `panel start` 恢复安装目录。
+4. **写运行标记** `/tmp/iotapanel-home`（0600 权限），供非 systemd 下 `panel start` 恢复安装目录。
 5. **打开数据库** `db.Open()`（JSON 原子写盘，损坏自动回退 `.bak`）。
 6. **扫描插件目录** `syncPluginsFromDir()`：`<home>/plugins/` 下手动放入的插件目录自动登记（拷贝即安装）。
 7. **创建插件管理器** `plugins.NewManager()` + `Load()`：读取 `port-map.json`，认领仍存活的插件进程（核心重启不杀保活插件的关键）。
@@ -280,7 +282,7 @@ menus:                 # 可选。注入侧边栏的菜单（可多个）
 | `PLUGIN_BIND` | 监听地址（= manifest.bind） |
 | `PLUGIN_NAME` | 插件名 |
 | `PANEL_HOME` | 面板安装目录 |
-| `MICROPANEL_VERSION` | 核心版本号 |
+| `IOTAPANEL_VERSION` | 核心版本号 |
 
 ### 5.4 教程一：Go 插件（逐行解读官方 hello）
 
