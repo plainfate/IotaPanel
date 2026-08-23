@@ -4,7 +4,7 @@
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8.svg)](https://go.dev/)
 [![GitHub](https://img.shields.io/badge/GitHub-plainfate%2FIotaPanel-181717.svg?logo=github)](https://github.com/plainfate/IotaPanel)
 
-> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 Apache-2.0 许可证。
+> 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 Apache-2.0 许可证。感谢此项目的贡献者@bczzb@li63050a@vexify-coder@vexify-root
 > 安装包随更名同步改为 `iotapanel-*`（新版本发布后下载链接生效）。
 
 > **极简微内核 + 进程级隔离 + 按需启动** 的 Linux 服务器应用框架。
