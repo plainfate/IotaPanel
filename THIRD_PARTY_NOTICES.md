@@ -30,6 +30,5 @@ Licensed under the MIT License:
 - golang.org/x/net — BSD-3-Clause, Copyright (c) 2009 The Go Authors
 - golang.org/x/text — BSD-3-Clause, Copyright (c) 2009 The Go Authors
 - gopkg.in/yaml.v3 — MIT AND Apache-2.0, Copyright (c) 2011-2019 Canonical Ltd
-- github.com/creack/pty 依赖的 github.com/pkg/term? 无；其余见各模块 LICENSE 文件
 
 以上协议全文可在各组件源码仓库获取；本项目的 Apache-2.0 许可证见 LICENSE。

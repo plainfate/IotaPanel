@@ -41,8 +41,10 @@ button:hover{opacity:.9}
   </div>
 </div>
 <script>
+const TOK='__TOKEN__';
+const H={'Authorization':'Bearer '+TOK};
 async function load(){try{
-  const c=await(await fetch('api/config')).json();
+  const c=await(await fetch('api/config',{headers:H})).json();
   document.getElementById('enable_read').checked=!!c.enable_read;
   document.getElementById('enable_write').checked=!!c.enable_write;
   document.getElementById('allow_shell').checked=!!c.allow_shell;
@@ -52,12 +54,12 @@ for (const id of ['enable_read','enable_write','allow_shell']) {
   document.getElementById(id).addEventListener('change', save);
 }
 async function save(){try{
-  const c=await(await fetch('api/config')).json();
-  const body={panel_addr:c.panel_addr||'127.0.0.1:8787',admin_user:c.admin_user||'',admin_password:c.admin_password||'',
+  const c=await(await fetch('api/config',{headers:H})).json();
+  const body={panel_addr:c.panel_addr||'127.0.0.1:8787',admin_user:c.admin_user||'',admin_password:'',
     enable_read:document.getElementById('enable_read').checked,
     enable_write:document.getElementById('enable_write').checked,
     allow_shell:document.getElementById('allow_shell').checked};
-  const r=await fetch('api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const r=await fetch('api/config',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},H),body:JSON.stringify(body)});
   const d=await r.json();if(!r.ok)throw new Error(d.error||'保存失败');
   msg('已保存，正在重启插件…',true);
   setTimeout(async()=>{try{await fetch('/api/plugins/mcp-agent/restart',{method:'POST'});msg('已重启，新开关生效。',true)}catch(e){msg('已保存，请到插件详情手动重启',false)}},300);

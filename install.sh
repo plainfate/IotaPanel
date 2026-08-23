@@ -150,6 +150,12 @@ fi
 
 # ---------- 注册 systemd 服务 ----------
 if [ "$USE_SYSTEMD" = "1" ] && command -v systemctl >/dev/null 2>&1; then
+  # 迁移：清理更名前旧单元，避免双 systemd 服务
+  if [ -f /etc/systemd/system/micropanel.service ]; then
+    systemctl disable micropanel >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/micropanel.service
+    echo "==> 已移除旧版 micropanel.service"
+  fi
   UNIT=/etc/systemd/system/iotapanel.service
   cat > "$UNIT" <<EOF
 # IotaPanel systemd 单元（由 install.sh 生成）

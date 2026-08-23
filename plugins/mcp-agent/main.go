@@ -25,6 +25,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/subtle"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -95,17 +96,38 @@ func main() {
 	mux.HandleFunc("GET /", pageHandler(token))
 	mux.HandleFunc("POST /mcp", func(w http.ResponseWriter, r *http.Request) { mcpHandler(w, r, token, home, cfg, pc) })
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearer(r, token) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "无效令牌"})
+			return
+		}
 		c := Config{}
 		if b, err := os.ReadFile(filepath.Join(dir, "config.yaml")); err == nil {
 			_ = yaml.Unmarshal(b, &c)
 		}
-		writeJSON(w, http.StatusOK, c)
+		// 掩码回显：不返回明文密码，仅返回是否已设置
+		writeJSON(w, http.StatusOK, map[string]any{
+			"panel_addr": c.PanelAddr, "admin_user": c.AdminUser,
+			"admin_password": "", "password_set": c.AdminPassword != "",
+			"enable_read": c.EnableRead, "enable_write": c.EnableWrite, "allow_shell": c.AllowShell,
+		})
 	})
 	mux.HandleFunc("POST /api/config", func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearer(r, token) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "无效令牌"})
+			return
+		}
 		var c Config
 		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求格式错误"})
 			return
+		}
+		// 空密码 = 保持原值（前端掩码回显，不回传明文）
+		if c.AdminPassword == "" {
+			var old Config
+			if b, err := os.ReadFile(filepath.Join(dir, "config.yaml")); err == nil {
+				_ = yaml.Unmarshal(b, &old)
+			}
+			c.AdminPassword = old.AdminPassword
 		}
 		data, err := yaml.Marshal(&c)
 		if err != nil {
@@ -255,8 +277,15 @@ func toolDefs() []map[string]any {
 	}
 }
 
+// checkBearer 恒定时间比较 Authorization: Bearer <token>。
+func checkBearer(r *http.Request, token string) bool {
+	want := []byte("Bearer " + token)
+	got := []byte(r.Header.Get("Authorization"))
+	return len(want) == len(got) && subtle.ConstantTimeCompare(want, got) == 1
+}
+
 func mcpHandler(w http.ResponseWriter, r *http.Request, token, home string, cfg Config, pc *panelClient) {
-	if r.Header.Get("Authorization") != "Bearer "+token {
+	if !checkBearer(r, token) {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"jsonrpc": "2.0", "error": map[string]any{"code": -32001, "message": "无效的访问令牌"}})
 		return
 	}
