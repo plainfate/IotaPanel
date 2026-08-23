@@ -28,6 +28,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"net/url"
 	"strings"
 	"time"
@@ -99,11 +100,31 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/settings", s.auth(s.handleSettingsPut))
 	mux.HandleFunc("GET /api/log", s.auth(s.handleLog))
 	mux.HandleFunc("POST /api/system/restart", s.auth(s.handleSystemRestart))
-	// 插件网关：/p/<插件名>/* 支持任意方法（GET 页面、POST 插件 API 等），需登录
-	mux.Handle("/p/", s.auth(http.HandlerFunc(s.gw.ServeHTTP)))
+	// 插件网关：/p/<插件名>/* 支持任意方法（GET 页面、POST 插件 API 等）
+	mux.Handle("/p/", http.HandlerFunc(s.handlePluginGateway))
 	mux.HandleFunc("/", s.handleUI)
 	// 顺序：安全响应头（最外层）→ 访问日志 → CSRF 校验 → 路由
 	return s.logRequests(s.securityHeaders(s.csrfCheck(mux)))
+}
+
+// handlePluginGateway 插件网关入口：默认需面板登录；
+// 插件 manifest 声明 auth: none 且路径为 /mcp 时免面板登录（由插件自身 Bearer 令牌鉴权，
+// 供 MCP 客户端直连；页面/其它路径仍走面板登录）。
+func (s *Server) handlePluginGateway(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/p/")
+	name, pluginPath, _ := strings.Cut(rest, "/")
+	// 注意：strings.Cut 返回分隔符之后的部分（无前导斜杠），故比较 "mcp"
+	if name != "" && pluginPath == "mcp" && s.pluginNoAuth(name) {
+		s.gw.ServeHTTP(w, r)
+		return
+	}
+	s.auth(http.HandlerFunc(s.gw.ServeHTTP))(w, r)
+}
+
+// pluginNoAuth 读取插件 manifest 判断是否声明 auth: none。
+func (s *Server) pluginNoAuth(name string) bool {
+	mf, err := plugins.LoadManifest(filepath.Join(s.cfg.Home, "plugins", name))
+	return err == nil && mf.Auth == "none"
 }
 
 // securityHeaders 设置基础安全响应头：防点击劫持、防 MIME 嗅探，

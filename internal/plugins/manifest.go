@@ -38,6 +38,7 @@ type Manifest struct {
 	Command     string   `yaml:"command"` // 相对插件目录的可执行入口，如 bin/file-manager
 	Args        []string `yaml:"args"`
 	Keepalive   bool     `yaml:"keepalive"` // 安装时默认保活
+	Auth        string   `yaml:"auth"`      // "" = 需面板登录；"none" = 免面板登录（插件自鉴权，如 MCP /mcp 端点）
 	Menus       []Menu   `yaml:"menus"`
 }
 

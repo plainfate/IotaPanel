@@ -79,6 +79,7 @@ type Session struct {
 	CreatedAt string `json:"created_at"`
 	ExpiresAt string `json:"expires_at"`
 	Revoked   bool   `json:"revoked"`
+	API       bool   `json:"api"` // API 会话（如 MCP Agent）：不被单会话机制互踢
 }
 
 // Open 打开（或创建）存储文件。
@@ -396,6 +397,9 @@ func (d *DB) RevokeOtherSessions(username, keepJTI string) (int64, error) {
 	defer d.mu.Unlock()
 	n := int64(0)
 	for i := range d.data.Sessions {
+		if d.data.Sessions[i].API {
+			continue // API 会话（MCP Agent 等）不参与单会话互踢
+		}
 		if d.data.Sessions[i].Username == username &&
 			d.data.Sessions[i].JTI != keepJTI && !d.data.Sessions[i].Revoked {
 			d.data.Sessions[i].Revoked = true

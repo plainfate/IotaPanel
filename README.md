@@ -52,24 +52,24 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 
 **第 1 步：下载对应架构的安装包**
 下面以 Linux ARM64 为例。其他平台把文件名换成：
-- Linux x86_64 → `iotapanel-0.3.8-linux-amd64.tar.gz`
-- Windows → `iotapanel-0.3.8-windows-amd64.tar.gz`
-- macOS → `iotapanel-0.3.8-darwin-amd64.tar.gz`
+- Linux x86_64 → `iotapanel-0.3.9-linux-amd64.tar.gz`
+- Windows → `iotapanel-0.3.9-windows-amd64.tar.gz`
+- macOS → `iotapanel-0.3.9-darwin-amd64.tar.gz`
 
 ```bash
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.8/iotapanel-0.3.8-linux-arm64.tar.gz
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.9/iotapanel-0.3.9-linux-arm64.tar.gz
 ```
 
 **第 2 步：解压**
 
 ```bash
-tar xzf iotapanel-0.3.8-linux-arm64.tar.gz
+tar xzf iotapanel-0.3.9-linux-arm64.tar.gz
 ```
 
 **第 3 步：进入解压目录**
 
 ```bash
-cd iotapanel-0.3.8-linux-arm64
+cd iotapanel-0.3.9-linux-arm64
 ```
 
 **第 4 步：运行安装脚本**（默认装到 /data/panel 并注册 systemd 自动启动）
@@ -95,22 +95,22 @@ git clone https://github.com/plainfate/IotaPanel.git && cd IotaPanel
 **再执行一行安装**（Linux，两种架构任选其一）：
 
 ```bash
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.8/iotapanel-0.3.8-linux-arm64.tar.gz   # ARM64
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.8/iotapanel-0.3.8-linux-amd64.tar.gz   # x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.9/iotapanel-0.3.9-linux-arm64.tar.gz   # ARM64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.9/iotapanel-0.3.9-linux-amd64.tar.gz   # x86_64
 ```
 
 Windows / macOS 包内**没有 install.sh**，需手动解压后直接运行：
 
 ```bash
 # Windows x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.8/iotapanel-0.3.8-windows-amd64.tar.gz
-tar xzf iotapanel-0.3.8-windows-amd64.tar.gz   # 或右键「全部解压」
-cd iotapanel-0.3.8-windows-amd64 && bin\panel.exe
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.9/iotapanel-0.3.9-windows-amd64.tar.gz
+tar xzf iotapanel-0.3.9-windows-amd64.tar.gz   # 或右键「全部解压」
+cd iotapanel-0.3.9-windows-amd64 && bin\panel.exe
 
 # macOS x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.8/iotapanel-0.3.8-darwin-amd64.tar.gz
-tar xzf iotapanel-0.3.8-darwin-amd64.tar.gz
-cd iotapanel-0.3.8-darwin-amd64 && bin/panel
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.9/iotapanel-0.3.9-darwin-amd64.tar.gz
+tar xzf iotapanel-0.3.9-darwin-amd64.tar.gz
+cd iotapanel-0.3.9-darwin-amd64 && bin/panel
 ```
 
 #### 方式三：本地构建后安装（仅开发者/内测）
@@ -127,7 +127,7 @@ cd iotapanel-0.3.8-darwin-amd64 && bin/panel
 ```bash
 ./package.sh                              # 打包全部平台: linux-amd64 linux-arm64 windows-amd64 darwin-amd64
 ./package.sh --targets linux-amd64,linux-arm64   # 只打指定平台
-./package.sh --version 0.3.8              # 自定义版本号
+./package.sh --version 0.3.9              # 自定义版本号
 ```
 
 产物（`dist/`，附 `.sha256`）：
@@ -385,3 +385,33 @@ plugins/                   # 官方插件源码
 本软件按「现状」提供，不附带任何担保。完整法律文本见 [LICENSE](LICENSE)。
 
 版权所有（Copyright ©）2026 [plainfate](https://github.com/plainfate)，遵循 Apache-2.0 许可证发布。
+
+
+---
+
+## MCP Agent 使用教程（Cherry Studio）
+
+面板内置 mcp-agent 插件，让 AI 客户端通过 MCP 协议读取/控制面板。
+
+### 面板侧准备
+1. 插件页启动 **MCP Agent**（保活常驻）。
+2. 侧边栏「MCP Agent」页复制**访问令牌**。
+3. （可选）写操作：编辑 `<安装目录>/etc/mcp-agent/config.yaml` 填 `admin_password`（管理员密码）后重启插件；`allow_shell` 高危默认关。
+
+### Cherry Studio 配置
+1. **设置 → MCP 服务器 → 添加**
+2. 填写：
+   - 名称：`iotapanel`
+   - 类型：**HTTP**（若版本只提供 SSE 类型，请升级 Cherry Studio 或反馈）
+   - URL：`http://<服务器IP>:8787/p/mcp-agent/mcp`
+   - Headers：`{"Authorization": "Bearer <访问令牌>"}`
+3. 保存后，新建对话并选择该 MCP 服务器（或按 Cherry Studio 版本在对话中启用）。
+4. 提问示例：「查看服务器状态」「列出已安装插件」「重启 hello 插件」。
+
+### 验证（升级后先 curl 自检）
+```bash
+curl -X POST http://<服务器IP>:8787/p/mcp-agent/mcp \
+  -H "Authorization: Bearer <令牌>" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+返回 6 个工具即正常；若返回 `未登录` 说明面板还是旧版本。

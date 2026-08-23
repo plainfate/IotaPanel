@@ -56,12 +56,12 @@ type Manifest struct {
 
 // Config 插件配置（$PANEL_HOME/etc/mcp-agent/config.yaml）。
 type Config struct {
-	PanelAddr     string `yaml:"panel_addr"`     // 面板地址（写操作调用其 API）
-	AdminUser     string `yaml:"admin_user"`     // 面板管理员用户名
-	AdminPassword string `yaml:"admin_password"` // 面板管理员密码（写操作需要）
-	AllowShell    bool   `yaml:"allow_shell"`    // 是否开放 run_command（高危，默认关）
-	EnableRead    bool   `yaml:"enable_read"`    // 只读工具开关（默认开）
-	EnableWrite   bool   `yaml:"enable_write"`   // 写操作 plugin_action 开关（默认开）
+	PanelAddr     string `yaml:"panel_addr" json:"panel_addr"`     // 面板地址（写操作调用其 API）
+	AdminUser     string `yaml:"admin_user" json:"admin_user"`     // 面板管理员用户名
+	AdminPassword string `yaml:"admin_password" json:"admin_password"` // 面板管理员密码（写操作需要）
+	AllowShell    bool   `yaml:"allow_shell" json:"allow_shell"`    // 是否开放 run_command（高危，默认关）
+	EnableRead    bool   `yaml:"enable_read" json:"enable_read"`    // 只读工具开关（默认开）
+	EnableWrite   bool   `yaml:"enable_write" json:"enable_write"`   // 写操作 plugin_action 开关（默认开）
 }
 
 const defaultConfig = `# mcp-agent 配置（写操作需要面板管理员凭据）
@@ -94,7 +94,13 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", pageHandler(token))
 	mux.HandleFunc("POST /mcp", func(w http.ResponseWriter, r *http.Request) { mcpHandler(w, r, token, home, cfg, pc) })
-	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, http.StatusOK, cfg) })
+	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
+		c := Config{}
+		if b, err := os.ReadFile(filepath.Join(dir, "config.yaml")); err == nil {
+			_ = yaml.Unmarshal(b, &c)
+		}
+		writeJSON(w, http.StatusOK, c)
+	})
 	mux.HandleFunc("POST /api/config", func(w http.ResponseWriter, r *http.Request) {
 		var c Config
 		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
@@ -183,7 +189,7 @@ type panelClient struct {
 }
 
 func (p *panelClient) login() error {
-	body, _ := json.Marshal(map[string]any{"username": p.user, "password": p.pass})
+	body, _ := json.Marshal(map[string]any{"username": p.user, "password": p.pass, "api": true})
 	resp, err := p.client.Post("http://"+p.addr+"/api/login", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err

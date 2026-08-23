@@ -48,6 +48,9 @@ async function load(){try{
   document.getElementById('allow_shell').checked=!!c.allow_shell;
 }catch(e){msg('加载配置失败: '+e,false)}}
 function msg(t,ok){const el=document.getElementById('msg');el.textContent=t;el.className=ok?'ok':'err'}
+for (const id of ['enable_read','enable_write','allow_shell']) {
+  document.getElementById(id).addEventListener('change', save);
+}
 async function save(){try{
   const c=await(await fetch('api/config')).json();
   const body={panel_addr:c.panel_addr||'127.0.0.1:8787',admin_user:c.admin_user||'',admin_password:c.admin_password||'',

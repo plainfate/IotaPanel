@@ -186,6 +186,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 		Remember bool   `json:"remember"` // 记住我：cookie 保留 30 天
+		API      bool   `json:"api"`      // API 会话（MCP Agent 等）：不参与单会话互踢
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求格式错误"})
@@ -247,12 +248,15 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		UserAgent: truncate(r.UserAgent(), 200),
 		CreatedAt: db.Now(),
 		ExpiresAt: time.Unix(sess.Exp, 0).Format(time.RFC3339),
+		API:       req.API,
 	})
 	_ = s.db.UpdateLastLogin(u.Username)
 
-	// 单账号单会话：新登录立即踢掉该账号的其他会话
-	if revoked, _ := s.db.RevokeOtherSessions(u.Username, sess.JTI); revoked > 0 {
-		s.log.Info("single-session: 踢掉旧会话", "username", u.Username, "revoked", revoked)
+	// 单账号单会话：新登录立即踢掉该账号的其他会话（API 会话不参与互踢）
+	if !req.API {
+		if revoked, _ := s.db.RevokeOtherSessions(u.Username, sess.JTI); revoked > 0 {
+			s.log.Info("single-session: 踢掉旧会话", "username", u.Username, "revoked", revoked)
+		}
 	}
 
 	// 普通登录 = 会话级 cookie（关浏览器失效）；记住我 = 30 天持久 cookie
