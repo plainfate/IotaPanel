@@ -1,7 +1,7 @@
 # IotaPanel（微面板）
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8.svg)](https://go.dev/)
+[![Rust](https://img.shields.io/badge/Rust-1.75+-dea584.svg)](https://www.rust-lang.org/)
 [![GitHub](https://img.shields.io/badge/GitHub-plainfate%2FIotaPanel-181717.svg?logo=github)](https://github.com/plainfate/IotaPanel)
 
 > 📌 本项目即 **MicroPanel** 的更名版：原名 MicroPanel（[github.com/plainfate/IotaPanel](https://github.com/plainfate/IotaPanel)），现更名为 **IotaPanel**，遵循 Apache-2.0 许可证。
@@ -13,31 +13,33 @@
 > ⚠️ **公网部署必须前置 HTTPS 反向代理**（Nginx / Caddy 等）：面板默认以明文 HTTP 监听 `:8787`，不经加密代理直接暴露公网时，管理员口令与登录会话可被网络嗅探。
 > 面板本身暂不内置 TLS/ACME（Roadmap），请在反代层终结 TLS；面板部署在受信反代之后时，设置 `PANEL_TRUST_PROXY=1` 以正确识别 HTTPS 与原始域名。
 
-- **微内核**：常驻内存仅约 8MB（Go 编译的单一二进制，内嵌前端与官方插件包）。
+- **微内核**：常驻内存极低，实测空闲 RSS 约 **3MB**（Rust 编译的单一二进制，内嵌前端与官方插件包）。
 - **插件 = 独立同级进程**：任意语言（Go、Rust、Python、Node.js、Shell…），崩溃隔离。
 - **按需冷启动**：开机只运行核心；点菜单才拉起插件（约 1-2 秒）；空闲自动退出释放内存。
 - **原生 UI 融合**：安装插件后自动向侧边栏注入菜单，页面经反向代理嵌入主内容区，地址栏不跳转。
 - **插件自由**：从 URL / GitHub Release 安装插件包（可选 SHA256 校验），或手动放入插件目录即装即用。
 
-> 资源占用、冷启动耗时等数据为 **linux/arm64 · Go 1.27 实测值**，不同平台/Go 版本会略有差异，仅供参考。
+> 资源占用、冷启动耗时等数据为 **linux/amd64 · Rust 1.75+（release 构建）实测值**，不同平台/工具链会略有差异，仅供参考。
 
 ---
 
 ## 快速开始
 
-### 1. 本地构建（需要 Go 1.25+）
+### 1. 本地构建（需要 Rust 1.75+）
 
 ```bash
-./build.sh
-# 产物：bin/panel（自包含二进制，内嵌前端 + 官方插件包）
+cd iotapanel-rs && cargo build --release
+# 产物：iotapanel-rs/target/release/panel（自包含二进制，内嵌前端 + 官方插件包）
 ```
+
+> 原 Go 实现保留在仓库 `cmd/`、`internal/` 目录；当前核心已迁移到 `iotapanel-rs/`（Rust 重写，接口与行为保持一致）。
 
 ### 2. 直接运行开发版
 
 ```bash
-PANEL_HOME=/tmp/mp-dev ./bin/panel
+PANEL_HOME=/tmp/mp-dev ./iotapanel-rs/target/release/panel
 # 默认在全部网卡监听 :8787（IPv4+IPv6 双栈），浏览器打开 http://<服务器IP>:8787 进入初始化向导
-# 仅本机调试: PANEL_HOME=/tmp/mp-dev LISTEN_ADDR=127.0.0.1:8787 ./bin/panel
+# 仅本机调试: PANEL_HOME=/tmp/mp-dev LISTEN_ADDR=127.0.0.1:8787 ./iotapanel-rs/target/release/panel
 ```
 
 > **监听地址说明**：`LISTEN_ADDR` 支持三种写法——`:8787` 全部网卡（IPv4+IPv6 双栈，默认）、`0.0.0.0:8787` 仅 IPv4、`127.0.0.1:8787` 仅本机。
@@ -167,7 +169,7 @@ PANEL_TRUST_PROXY=1
 ```text
 /data/panel/                     # 用户自定义安装位置
 ├── bin/
-│   └── panel                    # 核心二进制（约 18MB，唯一常驻进程，空闲约 8MB）
+│   └── panel                    # 核心二进制（约 18MB，唯一常驻进程，空闲约 3MB）
 ├── etc/
 │   ├── .env                     # PANEL_HOME、LISTEN_ADDR、JWT_SECRET、IDLE_TIMEOUT
 │   └── port-map.json            # 端口映射表（插件名 -> {端口, PID}）
@@ -193,7 +195,7 @@ PANEL_TRUST_PROXY=1
 | 模块 | 职责 |
 |---|---|
 | 用户认证 | PBKDF2 口令哈希 + HMAC 签名会话 cookie |
-| 反向代理网关 | `/p/<插件名>/*` → 插件进程端口（`httputil.ReverseProxy`） |
+| 反向代理网关 | `/p/<插件名>/*` → 插件进程端口（Rust：axum 路由 + reqwest 双向流，含 WebSocket/SSE） |
 | 插件进程管理 | 冷启动、空闲退出、保活、端口映射 |
 
 不含任何具体运维功能（文件管理、数据库、防火墙…）——那都是插件的活。
@@ -341,22 +343,27 @@ systemd 安装时 `start`/`stop`/`restart` 等价于 `systemctl {start,stop,rest
 ## 项目结构
 
 ```text
-cmd/panel/                 # 核心入口
-internal/
-  config/                  # .env 与运行配置
-  db/                      # 轻量 JSON 存储（用户/插件/会话/设置）
-  auth/                    # PBKDF2 + 会话 cookie
-  plugins/                 # 插件管理器（生命周期 + 安装/卸载）
-  gateway/                 # 反向代理网关
-  api/                     # REST API 与页面路由
-  embed/                   # 内嵌前端 + 官方插件包（build.sh 生成）
-plugins/                   # 官方插件源码
-  file-manager/            # Go：文件管理
-  resource-monitor/        # Go：资源监控
-  hello/                   # Go：极简保活示例（约 7MB）
-  terminal/                # Go：网页终端（Linux，xterm.js + PTY）
+cmd/panel/                 # （旧）Go 核心入口，已被 Rust 版本取代
+internal/                  # （旧）Go 内部模块：config/db/auth/plugins/gateway/api/embed
+iotapanel-rs/              # ★ 核心实现（Rust，axum + tokio）
+  src/
+    main.rs                # CLI + 服务启动配线
+    config.rs              # .env 与运行配置
+    db.rs                  # 轻量 JSON 存储（用户/插件/会话/设置）
+    auth.rs                # PBKDF2-SHA256 + HMAC 会话 cookie
+    plugins/               # 插件管理器（生命周期 + 安装/卸载）
+    gateway.rs             # 反向代理网关（HTTP/WS/SSE 流式）
+    api.rs                 # REST API 与页面路由
+    embed.rs               # 内嵌前端 + 官方插件包
+  assets/
+    web/                   # 面板前端（纯 HTML/CSS/JS，编译期内嵌）
+    plugins/               # 官方插件包（manifest + gz）
+plugins/                   # 官方插件源码（任意语言：Go/Rust/Python…）
+  file-manager/
+  resource-monitor/
+  hello/
+  terminal/
 ```
-（面板前端位于 internal/embed/web/，纯 HTML/CSS/JS，编译期内嵌进核心二进制。）
 
 ## 路线图（Roadmap）
 
