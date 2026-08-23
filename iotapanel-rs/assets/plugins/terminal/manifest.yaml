@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 plainfate <https://github.com/plainfate>
+# 插件元信息（manifest.yaml）
+# 官方网页终端（Linux）：xterm.js + WebSocket + PTY。
+# 仅本机监听，外部流量走面板网关，需登录后使用。
+name: terminal
+title: 终端
+version: 0.1.0
+author: IotaPanel 官方
+description: 网页终端（Linux 专用，轻量：约 6MB 常驻）
+language: go
+command: bin/terminal
+bind: 127.0.0.1
+menus:
+  - title: 终端
+    icon: 💻
+    path: /
+    section: system
