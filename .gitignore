@@ -8,6 +8,9 @@
 /tmp/
 *.log
 
+# TRAE 生成的 HTML 分享归档（复制了仓库内已有的页面，冗余，不应入库）
+/.trae-html-share-packages/
+
 # 编辑器 / 系统文件
 .idea/
 .vscode/

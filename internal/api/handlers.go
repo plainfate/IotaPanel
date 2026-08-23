@@ -514,13 +514,28 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求格式错误"})
 		return
 	}
+	// 先校验全部字段再统一应用，避免部分校验失败时前面字段已被写入（部分提交）
+	if req.IdleTimeoutMinutes > 0 &&
+		(req.IdleTimeoutMinutes < 1 || req.IdleTimeoutMinutes > 1440) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "空闲退出时间需在 1-1440 分钟之间"})
+		return
+	}
+	if req.Theme != "" && !themeNames[req.Theme] {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未知主题: " + req.Theme})
+		return
+	}
+	if req.Lang != "" && len(req.Lang) > 20 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "语言标识过长"})
+		return
+	}
+	if req.ListenPort > 0 && (req.ListenPort < 1 || req.ListenPort > 65535) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "端口需在 1-65535 之间"})
+		return
+	}
+
 	changed := false
 
 	if req.IdleTimeoutMinutes > 0 {
-		if req.IdleTimeoutMinutes < 1 || req.IdleTimeoutMinutes > 1440 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "空闲退出时间需在 1-1440 分钟之间"})
-			return
-		}
 		d := time.Duration(req.IdleTimeoutMinutes) * time.Minute
 		s.cfg.IdleTimeout = d
 		s.mgr.SetIdle(d)
@@ -529,19 +544,11 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Theme != "" {
-		if !themeNames[req.Theme] {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未知主题: " + req.Theme})
-			return
-		}
 		_ = s.db.SetSetting("theme", req.Theme)
 		changed = true
 	}
 
 	if req.Lang != "" {
-		if len(req.Lang) > 20 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "语言标识过长"})
-			return
-		}
 		_ = s.db.SetSetting("lang", req.Lang)
 		changed = true
 	}
@@ -549,10 +556,6 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request) {
 	// 修改监听端口：写回 .env 的 LISTEN_ADDR，重启后生效
 	needRestart := false
 	if req.ListenPort > 0 {
-		if req.ListenPort < 1 || req.ListenPort > 65535 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "端口需在 1-65535 之间"})
-			return
-		}
 		// 保留原监听地址的 host 部分（含空 host = 全部网卡 IPv4+IPv6 双栈），
 		// 只替换端口，避免把双栈 :8787 静默改成 IPv4-only 的 0.0.0.0:PORT
 		host := ""
