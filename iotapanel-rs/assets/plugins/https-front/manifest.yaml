@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 plainfate <https://github.com/plainfate>
+name: https-front
+title: HTTPS 网关
+version: 0.1.0
+author: IotaPanel 官方
+description: 为面板提供 HTTPS 入口：自签证书 / 已有证书 / Let's Encrypt 自动签发（ACME）
+language: go
+command: bin/https-front
+bind: 127.0.0.1
+keepalive: true
+menus:
+  - title: HTTPS 网关
+    icon: 🔒
+    path: /
+    section: tools

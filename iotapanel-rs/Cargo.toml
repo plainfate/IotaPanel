@@ -1,0 +1,44 @@
+[package]
+name = "iotapanel"
+version = "0.3.7"
+edition = "2021"
+description = "IotaPanel micro-kernel: auth + gateway + plugin process manager (Rust rewrite)"
+license = "Apache-2.0"
+default-run = "panel"
+
+[[bin]]
+name = "panel"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+sha1 = "0.10"
+hmac = "0.12"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+base64 = "0.22"
+hex = "0.4"
+getrandom = "0.2"
+hyper = { version = "1", features = ["server", "http1", "http2", "client"] }
+hyper-util = { version = "0.1", features = ["http1", "http2", "client", "client-legacy", "tokio"] }
+http = "1"
+http-body-util = "0.1"
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json"] }
+futures-util = { version = "0.3" }
+tokio-tungstenite = "0.26"
+flate2 = "1"
+tar = "0.4"
+include_dir = "0.7"
+libc = "0.2"
+chrono = { version = "0.4", features = ["clock"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"

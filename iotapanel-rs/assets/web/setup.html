@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  Copyright (C) 2026 plainfate <https://github.com/plainfate>
+  首次启动向导（初始化）：
+    Step 1  设置管理员账号
+    Step 2  勾选要安装的基础插件（可跳过进入极简模式）
+    Step 3  批量安装进度条（轮询 /api/setup/status）
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>初始化 · IotaPanel</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand-big"><span class="brand-dot">☁</span> IotaPanel</div>
+    <div class="auth-sub" data-i18n="spWelcome"></div>
+
+    <!-- Step 1：注册管理员账号 -->
+    <div id="step-admin">
+      <div class="step-title" data-i18n="spStep1"></div>
+      <div class="field">
+        <label for="s-username" data-i18n="lgUsername"></label>
+        <input class="input" id="s-username" autocomplete="off" data-i18n="spUsernamePh" data-i18n-ph>
+      </div>
+      <div class="field">
+        <label for="s-password" data-i18n="lgPassword"></label>
+        <input class="input" type="password" id="s-password" data-i18n="spPasswordPh" data-i18n-ph>
+      </div>
+      <div class="field">
+        <label for="s-password2" data-i18n="spConfirmPw"></label>
+        <input class="input" type="password" id="s-password2">
+      </div>
+      <div class="error-text" id="setup-error"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-next" data-i18n="spNext"></button>
+    </div>
+
+    <!-- Step 2：选择插件 -->
+    <div id="step-plugins" class="hidden">
+      <div class="step-title" data-i18n="spStep2"></div>
+      <div class="auth-sub" style="margin-bottom:14px" data-i18n="spStep2Sub"></div>
+      <div class="check-list" id="plugin-checks"></div>
+      <div class="error-text" id="setup-error2"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" style="flex:1;justify-content:center" id="btn-install" data-i18n="spInstall"></button>
+        <button class="btn" style="flex:1;justify-content:center" id="btn-skip" data-i18n="spSkip"></button>
+      </div>
+    </div>
+
+    <!-- Step 3：安装进度 -->
+    <div id="step-progress" class="hidden">
+      <div class="step-title" data-i18n="spStep3"></div>
+      <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+      <div class="progress-text" id="progress-text" data-i18n="spPreparing"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/i18n.js"></script>
+<script>
+/* ---------- 工具函数 ---------- */
+const $ = (id) => document.getElementById(id);
+
+// HTML 转义：所有来自插件元信息/商城的动态文本必须先经过 esc() 再进 innerHTML
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function show(id) {
+  ['step-admin', 'step-plugins', 'step-progress'].forEach(x => $(x).classList.add('hidden'));
+  $(id).classList.remove('hidden');
+}
+
+/* ---------- Step 1 → 2：校验账号并加载插件目录 ---------- */
+$('btn-next').addEventListener('click', async () => {
+  const username = $('s-username').value.trim();
+  const pw = $('s-password').value;
+  const pw2 = $('s-password2').value;
+  $('setup-error').textContent = '';
+  if (username.length < 3) return $('setup-error').textContent = '用户名至少 3 个字符';
+  if (pw.length < 6) return $('setup-error').textContent = '密码至少 6 位';
+  if (pw !== pw2) return $('setup-error').textContent = '两次输入的密码不一致';
+  try {
+    // 拉取商城插件目录用于勾选（未初始化时接口无需登录）
+    const data = await (await fetch('/api/store')).json();
+    const list = $('plugin-checks');
+    list.innerHTML = '';
+    (data.store || []).forEach(item => {
+      const div = document.createElement('label');
+      div.className = 'check-item';
+      div.innerHTML = `
+        <input type="checkbox" value="${esc(item.name)}" checked>
+        <div>
+          <div class="ci-title">${esc(item.title)} <span class="badge">v${esc(item.version)}</span></div>
+          <div class="ci-desc">${esc(item.description || '')} · ${esc(item.language || '')}</div>
+        </div>`;
+      list.appendChild(div);
+    });
+    if (!(data.store || []).length) {
+      list.innerHTML = '<div class="check-item ci-desc">暂无可用插件</div>';
+    }
+    show('step-plugins');
+  } catch (err) {
+    $('setup-error').textContent = '加载插件目录失败: ' + err.message;
+  }
+});
+
+/* 回车键也触发下一步 */
+['s-username', 's-password', 's-password2'].forEach(id => {
+  $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-next').click(); });
+});
+
+/* ---------- Step 2 → 3：提交初始化 ---------- */
+async function submitSetup(plugins) {
+  show('step-progress');
+  const body = {
+    username: $('s-username').value.trim(),
+    password: $('s-password').value,
+    plugins,
+  };
+  const res = await fetch('/api/setup/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    alert('初始化失败: ' + (d.error || res.status));
+    show('step-admin');
+    return;
+  }
+  pollProgress(); // 启动进度轮询
+}
+
+/* 轮询安装进度，完成后进入登录页 */
+function pollProgress() {
+  const timer = setInterval(async () => {
+    try {
+      const d = await (await fetch('/api/setup/status')).json();
+      const pct = d.total > 0 ? Math.round(d.done / d.total * 100) : 100;
+      $('progress-bar').style.width = pct + '%';
+      $('progress-text').textContent = d.current ? (d.current + ' … (' + d.done + '/' + d.total + ')') : '准备中…';
+      if (d.complete) {
+        clearInterval(timer);
+        $('progress-text').textContent = '✅ 初始化完成，即将跳转到登录页…';
+        setTimeout(() => location.href = '/login', 800);
+      } else if (d.error) {
+        clearInterval(timer);
+        $('progress-text').textContent = '❌ ' + d.error;
+      }
+    } catch { /* 网络抖动时忽略，继续轮询 */ }
+  }, 300);
+}
+
+$('btn-install').addEventListener('click', () => {
+  const picked = [...document.querySelectorAll('#plugin-checks input:checked')].map(i => i.value);
+  submitSetup(picked); // 按勾选安装
+});
+$('btn-skip').addEventListener('click', () => submitSetup([])); // 跳过：极简模式
+</script>
+</body>
+</html>
