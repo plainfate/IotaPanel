@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 plainfate <https://github.com/plainfate>
+name: mcp-agent
+title: MCP Agent
+version: 0.1.0
+author: IotaPanel 官方
+description: 轻量 MCP 服务器：AI 客户端可读取面板状态/插件/日志（读 + 写（plugin_action），Bearer 令牌认证）
+language: go
+command: bin/mcp-agent
+bind: 127.0.0.1
+keepalive: true
+menus:
+  - title: MCP Agent
+    icon: 🤖
+    path: /
+    section: tools

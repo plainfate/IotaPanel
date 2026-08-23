@@ -3,6 +3,9 @@
 /dist/
 /internal/embed/plugins/
 
+# Rust 构建产物
+/iotapanel-rs/target/
+
 # 本地开发数据
 /dev-home/
 /tmp/
