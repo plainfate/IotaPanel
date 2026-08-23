@@ -46,17 +46,19 @@ type ctxKey int
 const sessionKey ctxKey = 0
 
 type Server struct {
-	cfg   *config.Config
-	db    *db.DB
-	mgr   *plugins.Manager
-	gw    *gateway.Gateway
-	prog  *setupProgress
-	guard *loginGuard // 登录失败锁定
-	start time.Time
-	log   *slog.Logger
+	cfg    *config.Config
+	db     *db.DB
+	mgr    *plugins.Manager
+	gw     *gateway.Gateway
+	prog   *setupProgress
+	guard  *loginGuard // 登录失败锁定
+	webFS  fs.FS       // 预构建的内嵌静态资源子树，避免每次请求重新 fs.Sub
+	start  time.Time
+	log    *slog.Logger
 }
 
 func NewServer(cfg *config.Config, database *db.DB, mgr *plugins.Manager, logger *slog.Logger) *Server {
+	sub, _ := fs.Sub(embed.Web, "web")
 	return &Server{
 		cfg:   cfg,
 		db:    database,
@@ -64,6 +66,7 @@ func NewServer(cfg *config.Config, database *db.DB, mgr *plugins.Manager, logger
 		gw:    gateway.New(mgr, cfg.TrustProxy),
 		prog:  &setupProgress{},
 		guard: &loginGuard{fails: map[string]int{}, until: map[string]time.Time{}},
+		webFS: sub,
 		start: time.Now(),
 		log:   logger,
 	}
@@ -342,12 +345,11 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 		}
 		s.serveFile(w, r, "index.html")
 	default:
-		// 静态资源 /css/app.css 等
-		sub, err := fs.Sub(embed.Web, "web")
-		if err != nil {
+		// 静态资源 /css/app.css 等（webFS 已在 NewServer 预构建）
+		if s.webFS == nil {
 			http.NotFound(w, r)
 			return
 		}
-		http.FileServer(http.FS(sub)).ServeHTTP(w, r)
+		http.FileServer(http.FS(s.webFS)).ServeHTTP(w, r)
 	}
 }

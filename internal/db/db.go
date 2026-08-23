@@ -120,6 +120,7 @@ func (d *DB) Close() error { return d.save() }
 
 // save 原子写盘（临时文件 + rename），写入前把旧文件保留为 .bak（可回滚）。
 func (d *DB) save() error {
+	d.pruneSessionsLocked() // 落盘前清理过期会话，控制内存与存储增长
 	data, err := json.MarshalIndent(d.data, "", "  ")
 	if err != nil {
 		return err
@@ -136,6 +137,33 @@ func (d *DB) save() error {
 
 // Now 返回当前时间的 RFC3339 字符串（统一时间格式用）。
 func Now() string { return time.Now().Format(time.RFC3339) }
+
+// pruneSessionsLocked 删除已过期会话，避免会话表与 panel.json 无限增长。
+// 仅在落盘时执行，对内存占用长期偏高（尤其是长周期运行）有明显缓解。
+// 注意：只清理过期的，未过期的（即便已吊销）短期内保留以用于会话列表展示。
+// 调用方须已持有 d.mu。
+func (d *DB) pruneSessionsLocked() {
+	now := time.Now()
+	kept := d.data.Sessions[:0]
+	for _, s := range d.data.Sessions {
+		if s.ExpiresAt == "" {
+			kept = append(kept, s)
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, s.ExpiresAt)
+		// 解析失败或仍有效 → 保留
+		if err != nil || t.After(now) {
+			kept = append(kept, s)
+			continue
+		}
+		// 过期：丢弃（不可再用），并清空引用便于 GC 回收
+	}
+	// 释放被丢弃元素对底层数组的引用，帮助 GC
+	for i := len(kept); i < len(d.data.Sessions); i++ {
+		d.data.Sessions[i] = Session{}
+	}
+	d.data.Sessions = kept
+}
 
 // ---------- 用户 ----------
 

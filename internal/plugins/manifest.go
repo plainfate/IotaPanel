@@ -22,9 +22,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
+
+// manifest 缓存：避免同一目录的 manifest.yaml 被反复读盘/解析（如每次插件列表、
+// 每次免登录 MCP 探测），减少重复分配。按文件 mtime 失效。
+var (
+	manifestCacheMu sync.Mutex
+	manifestCache   = map[string]*manifestCacheEntry{}
+)
+
+type manifestCacheEntry struct {
+	mf    *Manifest
+	mtime int64
+}
 
 // Manifest 是插件元信息文件 manifest.yaml 的结构。
 type Manifest struct {
@@ -50,8 +63,24 @@ type Menu struct {
 }
 
 // LoadManifest 从插件安装目录读取并校验 manifest.yaml。
+// 命中有效缓存（同目录、mtime 未变）时直接返回，避免重复读盘与解析。
 func LoadManifest(dir string) (*Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(dir, "manifest.yaml"))
+	path := filepath.Join(dir, "manifest.yaml")
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("读取 manifest.yaml 失败: %w", err)
+	}
+	mtime := fi.ModTime().UnixNano()
+
+	manifestCacheMu.Lock()
+	if e, ok := manifestCache[path]; ok && e.mtime == mtime {
+		mf := *e.mf
+		manifestCacheMu.Unlock()
+		return &mf, nil
+	}
+	manifestCacheMu.Unlock()
+
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("读取 manifest.yaml 失败: %w", err)
 	}
@@ -71,5 +100,8 @@ func LoadManifest(dir string) (*Manifest, error) {
 	if mf.Title == "" {
 		mf.Title = mf.Name
 	}
+	manifestCacheMu.Lock()
+	manifestCache[path] = &manifestCacheEntry{mf: &mf, mtime: mtime}
+	manifestCacheMu.Unlock()
 	return &mf, nil
 }

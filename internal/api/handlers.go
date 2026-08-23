@@ -17,8 +17,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -400,11 +402,51 @@ func (s *Server) handlePluginKeepalive(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "keepalive": req.Enabled})
 }
 
-// handlePluginLog 返回指定插件的进程日志（logs/plugins/<name>.log）。
+// maxPluginLogRead 单次拉取插件日志的最大字节数（256 KiB）。
+// 插件日志单文件上限 20MB，整体读入内存再 JSON 序列化会吃大量内存，
+// 故只读取末尾一段并跳过被截断的首个不完整行。
+const maxPluginLogRead int64 = 256 << 10
+
+// readFileTail 读取文件末尾最多 maxBytes 字节，不加载整个文件到内存。
+func readFileTail(path string, maxBytes int64) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	size := fi.Size()
+	if size == 0 {
+		return []byte{}, nil
+	}
+	start := size - maxBytes
+	if start < 0 {
+		start = 0
+	}
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		return nil, err
+	}
+	buf := make([]byte, size-start)
+	if _, err := io.ReadFull(f, buf); err != nil {
+		return nil, err
+	}
+	// 从中间截断时跳过头部的半行，避免返回不完整的日志行
+	if start > 0 {
+		if idx := bytes.IndexByte(buf, '\n'); idx >= 0 {
+			buf = buf[idx+1:]
+		}
+	}
+	return buf, nil
+}
+
+// handlePluginLog 返回指定插件的进程日志（logs/plugins/<name>.log）末尾一段。
 func (s *Server) handlePluginLog(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	path := filepath.Join(s.cfg.Home, "logs", "plugins", name+".log")
-	data, err := os.ReadFile(path)
+	data, err := readFileTail(path, maxPluginLogRead)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]string{"log": ""})
 		return
