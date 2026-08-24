@@ -18,7 +18,7 @@
 - **按需冷启动**：开机只运行核心；点菜单才拉起插件（约 1-2 秒）；空闲自动退出释放内存。
 - **原生 UI 融合**：安装插件后自动向侧边栏注入菜单，页面经反向代理嵌入主内容区，地址栏不跳转。
 - **插件自由**：从 URL / GitHub Release 安装插件包（可选 SHA256 校验），或手动放入插件目录即装即用。
-- **插件仓库**由@BCZZB维护https://github.com/BCZZB/iotapanel-appstore
+- **插件仓库**由@BCZZB维护https://iotapanel.plainfate.top/
 
 > 资源占用、冷启动耗时等数据为 **linux/arm64 · Go 1.27 实测值**，不同平台/Go 版本会略有差异，仅供参考。
 > 感谢此项目的贡献者@bczzb@li63050a@vexify-coder@vexify-root
