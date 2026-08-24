@@ -214,8 +214,18 @@ func (s *Server) loggedIn(r *http.Request) bool {
 	if err != nil {
 		return false
 	}
-	_, ok := auth.ParseToken(c.Value, []byte(s.cfg.JWTSecret))
-	return ok
+	sess, ok := auth.ParseToken(c.Value, []byte(s.cfg.JWTSecret))
+	if !ok {
+		return false
+	}
+	// 与鉴权中间件一致：令牌必须存在于数据库且未被吊销
+	// （否则改密/强制下线后，已失效但签名仍有效的 cookie 会让 /login 与 / 互相 302 死循环）
+	rec, found, err := s.db.GetSessionByTokenHash(sha256Hex(c.Value))
+	if err != nil || !found || rec.Revoked {
+		return false
+	}
+	_ = sess
+	return true
 }
 
 // logRequests 访问日志中间件：记录方法、路径、状态码与耗时。

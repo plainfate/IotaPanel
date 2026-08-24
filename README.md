@@ -54,24 +54,24 @@ PANEL_HOME=/tmp/mp-dev ./bin/panel
 
 **第 1 步：下载对应架构的安装包**
 下面以 Linux ARM64 为例。其他平台把文件名换成：
-- Linux x86_64 → `iotapanel-0.3.10-linux-amd64.tar.gz`
-- Windows → `iotapanel-0.3.10-windows-amd64.tar.gz`
-- macOS → `iotapanel-0.3.10-darwin-amd64.tar.gz`
+- Linux x86_64 → `iotapanel-0.3.11-linux-amd64.tar.gz`
+- Windows → `iotapanel-0.3.11-windows-amd64.tar.gz`
+- macOS → `iotapanel-0.3.11-darwin-amd64.tar.gz`
 
 ```bash
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.10/iotapanel-0.3.10-linux-arm64.tar.gz
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.11/iotapanel-0.3.11-linux-arm64.tar.gz
 ```
 
 **第 2 步：解压**
 
 ```bash
-tar xzf iotapanel-0.3.10-linux-arm64.tar.gz
+tar xzf iotapanel-0.3.11-linux-arm64.tar.gz
 ```
 
 **第 3 步：进入解压目录**
 
 ```bash
-cd iotapanel-0.3.10-linux-arm64
+cd iotapanel-0.3.11-linux-arm64
 ```
 
 **第 4 步：运行安装脚本**（默认装到 /data/panel 并注册 systemd 自动启动）
@@ -97,22 +97,22 @@ git clone https://github.com/plainfate/IotaPanel.git && cd IotaPanel
 **再执行一行安装**（Linux，两种架构任选其一）：
 
 ```bash
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.10/iotapanel-0.3.10-linux-arm64.tar.gz   # ARM64
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.10/iotapanel-0.3.10-linux-amd64.tar.gz   # x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.11/iotapanel-0.3.11-linux-arm64.tar.gz   # ARM64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.11/iotapanel-0.3.11-linux-amd64.tar.gz   # x86_64
 ```
 
 Windows / macOS 包内**没有 install.sh**，需手动解压后直接运行：
 
 ```bash
 # Windows x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.10/iotapanel-0.3.10-windows-amd64.tar.gz
-tar xzf iotapanel-0.3.10-windows-amd64.tar.gz   # 或右键「全部解压」
-cd iotapanel-0.3.10-windows-amd64 && bin\panel.exe
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.11/iotapanel-0.3.11-windows-amd64.tar.gz
+tar xzf iotapanel-0.3.11-windows-amd64.tar.gz   # 或右键「全部解压」
+cd iotapanel-0.3.11-windows-amd64 && bin\panel.exe
 
 # macOS x64
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.10/iotapanel-0.3.10-darwin-amd64.tar.gz
-tar xzf iotapanel-0.3.10-darwin-amd64.tar.gz
-cd iotapanel-0.3.10-darwin-amd64 && bin/panel
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.3.11/iotapanel-0.3.11-darwin-amd64.tar.gz
+tar xzf iotapanel-0.3.11-darwin-amd64.tar.gz
+cd iotapanel-0.3.11-darwin-amd64 && bin/panel
 ```
 
 #### 方式三：本地构建后安装（仅开发者/内测）
@@ -129,7 +129,7 @@ cd iotapanel-0.3.10-darwin-amd64 && bin/panel
 ```bash
 ./package.sh                              # 打包全部平台: linux-amd64 linux-arm64 windows-amd64 darwin-amd64
 ./package.sh --targets linux-amd64,linux-arm64   # 只打指定平台
-./package.sh --version 0.3.10              # 自定义版本号
+./package.sh --version 0.3.11              # 自定义版本号
 ```
 
 产物（`dist/`，附 `.sha256`）：
@@ -410,7 +410,7 @@ plugins/                   # 官方插件源码
 3. 保存后，新建对话并选择该 MCP 服务器（或按 Cherry Studio 版本在对话中启用）。
 4. 提问示例：「查看服务器状态」「列出已安装插件」「重启 hello 插件」。
 
-> 说明：MCP 写操作使用**API 会话**（v0.3.10+），不会把管理员网页登录会话踢下线；`admin_password` 仅在服务端配置文件中保存，配置接口回显掩码。
+> 说明：MCP 写操作使用**API 会话**（v0.3.11+），不会把管理员网页登录会话踢下线；`admin_password` 仅在服务端配置文件中保存，配置接口回显掩码。
 > ⚠️ 安全：mcp-agent 声明了 `auth: none`（`/mcp` 端点绕过面板登录、仅靠 Bearer 令牌保护）。第三方插件若也声明 `auth: none`，等于把该端点直接开放到公网——**仅当插件自带强鉴权时才应使用**。
 
 ### 验证（升级后先 curl 自检）
