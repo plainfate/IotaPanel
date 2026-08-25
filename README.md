@@ -19,6 +19,7 @@
 - **原生 UI 融合**：安装插件后自动向侧边栏注入菜单，页面经反向代理嵌入主内容区，地址栏不跳转。
 - **插件自由**：从 URL / GitHub Release 安装插件包（可选 SHA256 校验），或手动放入插件目录即装即用。
 - **插件仓库**由@BCZZB维护https://iotapanel.plainfate.top/
+- **插件列表**(只做统计请自行审查安全性)由@plainfate列出https://github.com/plainfate/iotapanel-list
 
 > 资源占用、冷启动耗时等数据为 **linux/arm64 · Go 1.27 实测值**，不同平台/Go 版本会略有差异，仅供参考。
 > 感谢此项目的贡献者@bczzb@li63050a@vexify-coder@vexify-root
