@@ -62,12 +62,15 @@ PANEL_HOME=~/.iotapanel nohup bin/iotapanel serve >/tmp/iotapanel.log 2>&1 &
 ### CLI
 
 ```bash
-bin/iotapanel version   # 版本
-bin/iotapanel status    # 面板与插件状态
-bin/iotapanel log -n 50 # 查看核心日志
-bin/iotapanel stop      # 停止
-bin/iotapanel restart   # 重启
-bin/iotapanel uninstall # 卸载（保留数据）
+bin/iotapanel serve       # 前台运行面板服务
+bin/iotapanel status      # 面板状态（核心 + 插件进程）
+bin/iotapanel log -n 50   # 查看核心日志（tail N 行）
+bin/iotapanel start       # systemd 安装时：启动面板
+bin/iotapanel stop        # 停止面板（保留插件进程）
+bin/iotapanel restart     # 重启面板
+bin/iotapanel uninstall   # 卸载（保留数据）
+bin/iotapanel version     # 版本（等价于 -v / --version）
+bin/iotapanel help        # 帮助（等价于 -h / --help）
 ```
 
 ---
@@ -85,7 +88,7 @@ bin/iotapanel uninstall # 卸载（保留数据）
         ┌───────────────┼────────────────┬───────────────┐
         ▼               ▼                ▼               ▼
    plugin-hello   plugin-file-manager plugin-terminal  plugin-https-front …
-   (华丽的独立进程，经 stdin/env 注入配置)
+   (独立进程，经 env 注入配置；核心自动拉起/保活/空闲回收)
 ```
 
 - **`sdk/`**：共享基础库。迷你 HTTP 服务器（线程每连接）、WebSocket 帧编解码、YAML 解析、工具函数。核心与插件共用。
@@ -94,7 +97,7 @@ bin/iotapanel uninstall # 卸载（保留数据）
 
 ### 插件怎么写（任意 Rust）
 
-每个插件是个独立 crate，`Cargo.toml` 依赖 `iotapanel-sdk`，`manifest.yaml` 描述元信息，监听 `PLUGIN_PORT` 提供服务即可。面板会注入 `PLUGIN_PORT / PLUGIN_BIND / PLUGIN_NAME / PLUGIN_HOME / PANEL_HOME` 环境变量，并经 `/p/<名称>/` 把请求转发进来。
+每个插件是个独立 crate，`Cargo.toml` 依赖 `iotapanel-sdk`，`manifest.yaml` 描述元信息，监听 `PLUGIN_PORT` 提供服务即可。面板会注入 `PLUGIN_PORT / PLUGIN_BIND / PLUGIN_NAME / PANEL_HOME` 环境变量，并经 `/p/<名称>/` 把请求转发进来。
 
 ```rust
 use iotapanel_sdk::http::{Request, Response};
@@ -110,6 +113,21 @@ fn main() {
 
 ---
 
+## ⚙️ 配置
+
+面板通过数据目录下的 `etc/.env` 与环境变量配置（不配置则用默认值）：
+
+| 环境变量 | 默认值 | 说明 |
+|---|---|---|
+| `PANEL_HOME` | 参见 install.sh | 数据目录（数据库 / 插件 / 日志 / 配置） |
+| `LISTEN_ADDR` | `:8787` | 面板 HTTP 监听地址 |
+| `JWT_SECRET` | 首启动自动生成 | 会话 HMAC 密钥（写入 `etc/.env`） |
+| `IDLE_TIMEOUT` | `300`（秒） | 插件空闲回收超时 |
+| `PORT_START` / `PORT_END` | `19000` / `19999` | 插件动态端口池 |
+| `PANEL_TRUST_PROXY` | 未设置（false） | 设为 `1`/`true` 后信任反向代理，解析 `X-Forwarded-Proto/Host` |
+
+---
+
 ## 📦 插件商店
 
 面板自带 6 个官方内嵌插件，可在初始化向导或「插件商店」页勾选/安装；也支持通过 URL 安装 tarball 插件包。
@@ -119,8 +137,8 @@ fn main() {
 - 密码使用 **PBKDF2-SHA256**（60 万迭代）加盐哈希，旧参数哈希自动升级。
 - 登录失败达到阈值自动锁定账号一段时间（可配置）。
 - 会话可管理：查看登录会话、强制下线其它设备、下线所有会话。
-- 所有响应附 `X-Frame-Options` / `X-Content-Type-Options` 安全头；非本地受信代理下走 HSTS。
+- 所有响应附 `X-Frame-Options` / `X-Content-Type-Options` 安全头；设为可信反向代理（`PANEL_TRUST_PROXY`）时基于 `X-Forwarded-Proto/Host` 恢复真实协议与主机，并预留 HSTS。
 
 ## 📄 License
 
-[Apache-2.0](LICENSE) · 感谢 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)
+[Apache-2.0](LICENSE) · 本仓库即 MicroPanel 的更名版。前端与终端组件许可见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。

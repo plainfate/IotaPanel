@@ -34,7 +34,6 @@ PANEL_HOME=/tmp/iota-panel LISTEN_ADDR=:8787 bin/iotapanel serve
 每个插件是独立 Cargo crate，依赖 `iotapanel-sdk`，并在 `manifest.yaml` 声明名称、版本、命令和保活策略。核心为插件进程注入：
 
 - `PANEL_HOME`
-- `PLUGIN_HOME`
 - `PLUGIN_NAME`
 - `PLUGIN_BIND`
 - `PLUGIN_PORT`
