@@ -526,7 +526,7 @@ input{width:100%;padding:9px;border:1px solid var(--border);border-radius:6px;ma
   <button class="p" onclick="chpw()">保存</button></div></div>
 </div>
 <script>
-let PLUGINS=[],VERSION='0.4.0',HOME='';
+let PLUGINS=[],VERSION='0.4.1',HOME='';
 async function api(p,o){const r=await fetch(p,o);const d=await r.json().catch(()=>({}));if(r.status===401){location.href='/login';}if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d;}
 async function boot(){
  try{const me=await api('/api/me');document.getElementById('who').textContent=me.username;}catch(e){}
@@ -690,7 +690,7 @@ fn spawn_plugin(app: &App, name: &str) -> Result<Runtime, String> {
         .env("PLUGIN_BIND", &bind)
         .env("PLUGIN_NAME", name)
         .env("PANEL_HOME", &*app.home)
-        .env("IOTAPANEL_VERSION", "0.4.0")
+        .env("IOTAPANEL_VERSION", "0.4.1")
         .stdout(Stdio::from(log_file.try_clone().map_err(|e| e.to_string())?))
         .stderr(Stdio::from(log_file))
         .spawn()
@@ -1027,7 +1027,7 @@ async fn dispatch(app: App, req: Request<hyper::body::Incoming>) -> Response<Bod
             json_resp(
                 StatusCode::OK,
                 &format!(
-                    "{{\"version\":\"0.4.0\",\"home\":\"{}\",\"plugins\":{},\"running\":{}}}",
+                    "{{\"version\":\"0.4.1\",\"home\":\"{}\",\"plugins\":{},\"running\":{}}}",
                     app.home.replace('\\', "/"), np, nr
                 ),
             )

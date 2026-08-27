@@ -1,4 +1,4 @@
-# IotaPanel Rust 核心（v0.4.0）
+# IotaPanel Rust 核心（v0.4.1）
 
 IotaPanel 的 Rust 微内核核心，与 Go 版**同一插件契约、同一数据格式**——`data/panel.json` 与 `etc/.env` 完全兼容，同一安装目录可在 Go/Rust 核心之间切换而不丢失登录态。
 
@@ -6,7 +6,7 @@ IotaPanel 的 Rust 微内核核心，与 Go 版**同一插件契约、同一数�
 - 平台：Linux（arm64 / amd64）、Windows（amd64）；macOS 需在 Mac 或 CI 构建
 - 纯 Rust：tokio + hyper（无 axum 路由依赖，请求处理全自控）
 
-## 功能（v0.4.0）
+## 功能（v0.4.1）
 
 **安全加固**
 - 登录/登出（cookie 会话）、错误响应 401、CSRF Origin 校验（URL 解析比较，非字符串前缀）
@@ -68,8 +68,20 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
   cargo build --release --target x86_64-pc-windows-gnu
 
 # 一键打包（linux arm64/amd64 + windows，附 sha256）
-./package.sh   # 产物在 dist/iotapanel-rust-0.4.0-*.tar.gz
+./package.sh   # 产物在 dist/iotapanel-rust-0.4.1-*.tar.gz
 ```
+
+## 开箱即用（install.sh，systemd）
+
+```bash
+# 一行安装（自动下载、解压、SHA256 校验、注册 systemd 服务、开机自启）
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.4.1/iotapanel-rust-0.4.1-linux-arm64.tar.gz
+
+# 或本机离线安装（当前目录已有解压出的 iotapanel-rust + plugins/）
+bash install.sh -d /data/panel
+```
+
+包内已自带官方插件（hello/file-manager/resource-monitor/terminal/https-front/mcp-agent），解压即用；也可自行往 `<目录>/plugins/` 放插件。
 
 ## 运行
 

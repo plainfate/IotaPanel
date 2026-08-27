@@ -22,7 +22,7 @@
 
 - **HTTPS 一键开启**：内置 https-front 插件（自签 / 已有证书 / Let's Encrypt ACME），无需外部反代。
 - **内置 MCP Agent**：Cherry Studio 等 AI 客户端经 MCP 协议读取/控制面板（Bearer 令牌认证，工具开关可配）。
-- **双核心**：Go 核心（主力）+ Rust 核心（rust-core/，v0.4.0），同一插件契约、同一数据格式，可互切。
+- **双核心**：Go 核心 + Rust 核心（rust-core/，v0.4.1），同一插件契约、同一数据格式，可互切，同等维护。
 
 > 资源占用、冷启动耗时等数据为 **linux/arm64 · Go 1.27 / Rust 1.98 实测值**，不同平台/Go 版本会略有差异，仅供参考。
 > 感谢此项目的贡献者@bczzb@li63050a@vexify-coder@vexify-root
@@ -114,8 +114,8 @@ PANEL_HOME=/tmp/mp-dev LISTEN_ADDR=127.0.0.1:8787 ./bin/panel
 
 ```bash
 # 1. 下载对应平台包并解压（Linux arm64 为例）
-curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.4.0/iotapanel-rust-0.4.0-linux-arm64.tar.gz
-tar xzf iotapanel-rust-0.4.0-linux-arm64.tar.gz
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.4.1/iotapanel-rust-0.4.1-linux-arm64.tar.gz
+tar xzf iotapanel-rust-0.4.1-linux-arm64.tar.gz
 
 # 2. 准备插件目录（直接复用 Go 版插件，或从 Go 安装包拷 plugins/ 到 <目录>/plugins/）
 mkdir -p /data/panel/plugins
@@ -134,21 +134,21 @@ PANEL_HOME=/data/panel LISTEN_ADDR=127.0.0.1:8787 ./iotapanel-rust
 ### 远程连接
 若面板仅监听本机（https-front 一键收紧后），远程客户端需走 HTTPS 入口：`https://<域名或IP>:8443/p/mcp-agent/mcp`；自签证书可能被客户端拒绝，建议用 ACME 正式证书。
 
-## 双核心（Go 主力 + Rust 实验）
+## 双核心（Go 与 Rust 同等维护）
 
-| | Go 核心（主力，正式发布） | Rust 核心（rust-core/） |
+| | Go 核心 | Rust 核心（rust-core/） |
 |---|---|---|
-| 状态 | 正式发布（最新 v0.3.13） | v0.4.0（本地，待发布） |
+| 状态 | 正式发布（最新 v0.3.13） | v0.4.1（本地，待发布） |
 | 功能 | 完整 | 完整核心能力（认证/向导/管理前端/MCP 写操作） |
 | 内存 | ~8MB | ~3MB |
 | 平台 | linux/win/mac（Go 原生交叉） | linux/win（macOS 需 macOS 构建） |
-| 打包 | `./package.sh` → `iotapanel-<版本>-*` | `rust-core/package.sh` → `iotapanel-rust-0.4.0-*` |
+| 打包 | `./package.sh` → `iotapanel-<版本>-*` | `rust-core/package.sh` → `iotapanel-rust-0.4.1-*` |
 
 **打包分离**：两个核心各自独立出包、独立发布，互不影响；升级/安装互不干扰（同样是按架构选包）。
 
-## Rust 核心（rust-core/）
+## Rust 核心（rust-core/，第一等公民）
 
-`rust-core/` 提供了 Rust 重写的微内核核心（v0.4.0），与 Go 版**同一插件契约、同一数据格式**，可直接运行全部官方插件。
+`rust-core/` 提供了 Rust 重写的微内核核心（v0.4.1），与 Go 版**同一插件契约、同一数据格式**，可直接运行全部官方插件。
 
 - 常驻内存 **~3MB**（Go 版约 8MB），二进制约 3.2MB
 - 已实现：认证会话（单会话/API 会话/CSRF）、初始化向导、改密、插件启停/保活/空闲退出、`auth: none`（MCP 免登录直连）、面板 API（mcp-agent 写操作可用）、内嵌 Web 管理前端
