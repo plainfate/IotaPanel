@@ -1,1 +1,0 @@
-hyper::service::util::ServiceFn<{closure@src/main.rs:251:34: 251:59}, axum::body::Body>: Service<hyper::Request<hyper::body::Incoming>>
