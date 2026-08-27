@@ -299,8 +299,26 @@ async function upload() {
   } catch (e) { toast(e.message, true); }
 }
 
+let _modalResolve = null;
+function modalDone(ok) {
+  const v = document.getElementById('modal-input').value;
+  document.getElementById('modal-mask').style.display = 'none';
+  if (_modalResolve) { const r = _modalResolve; _modalResolve = null; r(ok ? v : null); }
+}
+function openModal(title, def) {
+  return new Promise((resolve) => {
+    _modalResolve = resolve;
+    document.getElementById('modal-title').textContent = title;
+    const inp = document.getElementById('modal-input');
+    inp.value = def || '';
+    document.getElementById('modal-mask').style.display = 'flex';
+    inp.focus();
+    inp.onkeydown = (e) => { if (e.key === 'Enter') modalDone(true); if (e.key === 'Escape') modalDone(false); };
+  });
+}
+
 function mkdir() {
-  const name = prompt('新目录名称：');
+  const name = await openModal('新目录名称：');
   if (!name) return;
   call('api/mkdir', {
     method: 'POST',
@@ -310,7 +328,7 @@ function mkdir() {
 }
 
 function newFile() {
-  const name = prompt('新文件名：');
+  const name = await openModal('新文件名：');
   if (!name) return;
   call('api/write', {
     method: 'POST',
@@ -320,7 +338,7 @@ function newFile() {
 }
 
 function renameFile(name) {
-  const newName = prompt('重命名为：', name);
+  const newName = await openModal('重命名为：', name);
   if (!newName || newName === name) return;
   call('api/rename', {
     method: 'POST',
@@ -365,5 +383,15 @@ async function loadDisks() {
 load();
 loadDisks();
 </script>
+<div id="modal-mask" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;z-index:99">
+  <div style="background:#fff;border-radius:8px;padding:16px;min-width:300px;box-shadow:0 8px 30px rgba(0,0,0,.25)">
+    <div id="modal-title" style="font-weight:600;margin-bottom:10px"></div>
+    <input id="modal-input" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:4px">
+    <div style="margin-top:12px;text-align:right">
+      <button onclick="modalDone(false)" style="margin-right:8px">取消</button>
+      <button onclick="modalDone(true)">确定</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

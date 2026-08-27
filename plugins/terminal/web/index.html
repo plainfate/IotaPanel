@@ -61,6 +61,38 @@ ws.onerror = () => { connEl.textContent = '连接错误'; };
 ws.onmessage = (e) => { term.write(new Uint8Array(e.data)); };
 term.onData((d) => { if (ws.readyState === 1) ws.send(d); });
 
+/* 粘贴/复制：xterm 默认不处理剪贴板，需自行接入 */
+term.attachCustomKeyEventHandler((e) => {
+  if (e.type !== 'keydown') return true;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && (e.key === 'v' || e.key === 'V')) {
+    e.preventDefault();
+    navigator.clipboard.readText().then((t) => { if (t) term.paste(t); }).catch(() => {});
+    return false;
+  }
+  if (mod && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+    e.preventDefault();
+    const sel = term.getSelection();
+    if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+    return false;
+  }
+  if (mod && e.key === 'Insert') {
+    e.preventDefault();
+    const sel = term.getSelection();
+    if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+    return false;
+  }
+  return true;
+});
+/* 若剪贴板 API 不可用（非 https），改用右键粘贴 */
+document.addEventListener('contextmenu', (e) => {
+  if (e.target.closest('#terminal') && navigator.clipboard) return;
+});
+document.addEventListener('paste', (e) => {
+  const t = e.clipboardData && e.clipboardData.getData('text/plain');
+  if (t) term.paste(t);
+});
+
 /* ---------- 自适应尺寸 ---------- */
 const fitAddon = new FitAddon.FitAddon();
 term.loadAddon(fitAddon);
