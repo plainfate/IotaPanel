@@ -18,6 +18,8 @@
 - **原生 UI 融合**：安装插件后自动向侧边栏注入菜单，页面经反向代理嵌入主内容区，地址栏不跳转。
 - **插件自由**：从 URL / GitHub Release 安装插件包（可选 SHA256 校验），或手动放入插件目录即装即用。
 - **插件仓库**由@BCZZB维护 https://iotapanel.plainfate.top/
+- **插件列表**(只做统计请自行审查安全性)由@plainfate列出  https://github.com/plainfate/iotapanel-list
+
 - **HTTPS 一键开启**：内置 https-front 插件（自签 / 已有证书 / Let's Encrypt ACME），无需外部反代。
 - **内置 MCP Agent**：Cherry Studio 等 AI 客户端经 MCP 协议读取/控制面板（Bearer 令牌认证，工具开关可配）。
 - **双核心**：Go 核心（主力）+ Rust 核心（rust-core/，v0.4.0），同一插件契约、同一数据格式，可互切。
