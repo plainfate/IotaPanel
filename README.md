@@ -37,14 +37,14 @@
 
 | 平台 | 包名 |
 |---|---|
-| Linux x86_64 | `iotapanel-0.3.12-linux-amd64.tar.gz` |
-| Linux ARM64 | `iotapanel-0.3.12-linux-arm64.tar.gz` |
-| Windows x64 | `iotapanel-0.3.12-windows-amd64.tar.gz` |
-| macOS x64 | `iotapanel-0.3.12-darwin-amd64.tar.gz` |
+| Linux x86_64 | `iotapanel-0.3.13-linux-amd64.tar.gz` |
+| Linux ARM64 | `iotapanel-0.3.13-linux-arm64.tar.gz` |
+| Windows x64 | `iotapanel-0.3.13-windows-amd64.tar.gz` |
+| macOS x64 | `iotapanel-0.3.13-darwin-amd64.tar.gz` |
 
 ```bash
-tar xzf iotapanel-0.3.12-linux-amd64.tar.gz
-cd iotapanel-0.3.12-linux-amd64
+tar xzf iotapanel-0.3.13-linux-amd64.tar.gz
+cd iotapanel-0.3.13-linux-amd64
 ./install.sh -d /data/panel          # 安装为 systemd 服务（开机自启，自动移除旧版服务名）
 # 或直接开发运行：PANEL_HOME=/data/panel ./bin/panel
 ```
@@ -65,8 +65,8 @@ git clone https://github.com/plainfate/IotaPanel.git && cd IotaPanel
 **再执行一行安装**（Linux，两种架构任选其一）：
 
 ```bash
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.12/iotapanel-0.3.12-linux-arm64.tar.gz   # ARM64
-bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.12/iotapanel-0.3.12-linux-amd64.tar.gz   # x86_64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.13/iotapanel-0.3.13-linux-arm64.tar.gz   # ARM64
+bash install.sh -d /data/panel --url https://github.com/plainfate/IotaPanel/releases/download/v0.3.13/iotapanel-0.3.13-linux-amd64.tar.gz   # x86_64
 ```
 
 Windows / macOS 包内**没有 install.sh**，需手动解压后直接运行（同上方式一）。
@@ -108,6 +108,29 @@ PANEL_HOME=/tmp/mp-dev LISTEN_ADDR=127.0.0.1:8787 ./bin/panel
 > 说明：MCP 写操作使用**API 会话**（v0.3.9+），不会把管理员网页登录会话踢下线；`admin_password` 仅在服务端配置文件保存，配置接口回显掩码。
 > ⚠️ 安全：mcp-agent 声明了 `auth: none`（`/mcp` 端点绕过面板登录、仅靠 Bearer 令牌保护）。第三方插件若也声明 `auth: none`，等于把该端点直接开放到公网——**仅当插件自带强鉴权时才应使用**。
 
+### Rust 核心快速使用（实验性）
+
+> Rust 核心（`iotapanel-rust`）与 Go 版共用同一插件目录与数据目录，可独立部署。定位为**打底/架构验证**，Go 核心仍是生产主力。
+
+```bash
+# 1. 下载对应平台包并解压（Linux arm64 为例）
+curl -fLO https://github.com/plainfate/IotaPanel/releases/download/v0.4.0/iotapanel-rust-0.4.0-linux-arm64.tar.gz
+tar xzf iotapanel-rust-0.4.0-linux-arm64.tar.gz
+
+# 2. 准备插件目录（直接复用 Go 版插件，或从 Go 安装包拷 plugins/ 到 <目录>/plugins/）
+mkdir -p /data/panel/plugins
+cp -r /path/to/Go安装目录/plugins/* /data/panel/plugins/
+
+# 3. 运行
+PANEL_HOME=/data/panel LISTEN_ADDR=127.0.0.1:8787 ./iotapanel-rust
+# 可选：IDLE_TIMEOUT=<秒>（空闲退出，默认 300）；PROXY_TIMEOUT=<秒>（转发超时，默认 30）
+
+# 4. 浏览器打开 http://127.0.0.1:8787 → 首次自动进入 /setup 创建管理员 → /login 登录 → 管理界面
+# 插件从 /p/<插件名>/ 访问（需登录，除非插件声明 auth: none）
+```
+
+与 Go 版数据互通：同一 `data/panel.json` / `etc/.env`，两个核心切换不丢登录态。
+
 ### 远程连接
 若面板仅监听本机（https-front 一键收紧后），远程客户端需走 HTTPS 入口：`https://<域名或IP>:8443/p/mcp-agent/mcp`；自签证书可能被客户端拒绝，建议用 ACME 正式证书。
 
@@ -115,7 +138,7 @@ PANEL_HOME=/tmp/mp-dev LISTEN_ADDR=127.0.0.1:8787 ./bin/panel
 
 | | Go 核心（主力，正式发布） | Rust 核心（rust-core/） |
 |---|---|---|
-| 状态 | 正式发布（最新 v0.3.12） | v0.4.0（本地，待发布） |
+| 状态 | 正式发布（最新 v0.3.13） | v0.4.0（本地，待发布） |
 | 功能 | 完整 | 完整核心能力（认证/向导/管理前端/MCP 写操作） |
 | 内存 | ~8MB | ~3MB |
 | 平台 | linux/win/mac（Go 原生交叉） | linux/win（macOS 需 macOS 构建） |

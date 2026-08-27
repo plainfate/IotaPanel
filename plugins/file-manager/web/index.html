@@ -317,7 +317,7 @@ function openModal(title, def) {
   });
 }
 
-function mkdir() {
+async function mkdir() {
   const name = await openModal('新目录名称：');
   if (!name) return;
   call('api/mkdir', {
@@ -327,7 +327,7 @@ function mkdir() {
   }).then(() => { toast('已创建目录'); load(); }).catch(e => toast(e.message, true));
 }
 
-function newFile() {
+async function newFile() {
   const name = await openModal('新文件名：');
   if (!name) return;
   call('api/write', {
@@ -337,7 +337,7 @@ function newFile() {
   }).then(() => viewFile(name)).catch(e => toast(e.message, true));
 }
 
-function renameFile(name) {
+async function renameFile(name) {
   const newName = await openModal('重命名为：', name);
   if (!newName || newName === name) return;
   call('api/rename', {
