@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--
+  Hello 演示插件页面（Go 版，极简保活：常驻仅约 4MB）
+  用于验证：插件以独立同级进程运行、冷启动、空闲退出、环境变量注入等机制。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hello</title>
+<style>
+  :root { --bg:#f6f4ef; --panel:#ffffff; --border:#e3ddd0; --text:#3d3a33; --muted:#8b8678; --accent:#7d9b76; --ok:#7fa05e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; padding:40px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; max-width:620px; margin:0 auto; padding:30px; }
+  h1 { font-size:20px; margin-bottom:8px; }
+  p { color:var(--muted); font-size:13.5px; line-height:1.8; }
+  code { background:var(--bg); padding:1px 6px; border-radius:5px; color:var(--ok); }
+  table { width:100%; margin-top:14px; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:500; }
+  td:last-child { font-family:ui-monospace,Consolas,monospace; color:var(--ok); word-break:break-all; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>👋 Hello, iotapanel!</h1>
+    <p>
+      这个插件展示了「极简保活」：它由 Go 编写，常驻内存仅 <strong>约 4MB</strong>
+      （早期 Python 版本要 37MB）。它证明插件可以用任意语言、任意体积实现，
+      面板核心只负责分配端口、拉起进程、反向代理。
+    </p>
+    <p style="margin-top:10px">
+      面板核心通过环境变量与插件通信——下面这些就是核心注入的：
+    </p>
+    <table>
+      <thead><tr><th>变量</th><th>值</th></tr></thead>
+      <tbody id="env-body"><tr><td colspan="2">加载中…</td></tr></tbody>
+    </table>
+    <p style="margin-top:12px">
+      什么都不做 5 分钟后进程会被核心自动回收（保活模式下则常驻）；
+      点「设置 → 端口映射表」可以看到它的端口和 PID。
+    </p>
+  </div>
+<script>
+/* 相对路径 api/info：经面板网关 /p/hello/ 转发 */
+fetch('api/info').then(r => r.json()).then(d => {
+  const tb = document.getElementById('env-body');
+  tb.innerHTML = '';
+  Object.entries(d).forEach(([k, v]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${k}</td><td>${v || '-'}</td>`;
+    tb.appendChild(tr);
+  });
+}).catch(() => {});
+</script>
+</body>
+</html>

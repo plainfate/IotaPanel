@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<!--
+  文件管理插件前端页面（纯 HTML/CSS/JS，内嵌于插件二进制）
+  功能：面包屑导航、目录浏览（权限/属主）、文本文件在线查看与编辑、
+        上传、下载、新建目录、重命名、删除
+
+  重要：所有 AJAX 使用【相对路径】(api/...)，
+        经面板网关转发后为 /p/<插件名>/api/...（绝对路径 /api/... 会打到面板 404）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文件管理</title>
+<style>
+  /* 莫奈配色（与面板一致） */
+  :root { --bg:#f6f4ef; --panel:#ffffff; --panel2:#f1f2ec; --border:#e3ddd0; --text:#3d3a33; --muted:#8b8678; --accent:#7d9b76; --accent-hi:#5e7f58; --danger:#c2715f; --ok:#7fa05e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; font-size:14px; padding:22px 26px; }
+  h1 { font-size:17px; margin-bottom:2px; }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:14px; word-break:break-all; }
+  .toolbar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  button, .btn {
+    padding:6px 13px; border:1px solid var(--border); border-radius:8px;
+    background:var(--panel); color:var(--text); cursor:pointer; font-size:13px;
+  }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.danger { border-color:var(--danger); color:var(--danger); }
+  button.danger:hover { background:var(--danger); color:#fff; }
+  /* 面包屑 */
+  .crumbs { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-bottom:12px; font-size:13px; }
+  .crumbs a { color:var(--accent-hi, #6ba1ff); cursor:pointer; text-decoration:none; padding:2px 4px; border-radius:5px; }
+  .crumbs a:hover { background:var(--panel); }
+  .crumbs span.sep { color:var(--muted); }
+  .crumbs .cur { color:var(--text); font-weight:600; }
+  /* 表格 */
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); font-size:13px; }
+  th { color:var(--muted); font-weight:500; white-space:nowrap; }
+  tr.dir-row { cursor:pointer; }
+  tr:hover td { background:var(--panel); }
+  .mono { font-family:ui-monospace,Consolas,monospace; font-size:12px; color:var(--muted); }
+  .row-actions { display:flex; gap:5px; justify-content:flex-end; white-space:nowrap; }
+  .row-actions button { padding:2px 9px; font-size:12px; }
+  .err { color:var(--danger); min-height:18px; margin-top:10px; font-size:13px; }
+  /* 编辑弹窗 */
+  #edit-mask { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; }
+  #edit-modal {
+    position:fixed; left:50%; top:6%; transform:translateX(-50%);
+    width:min(860px, 92vw); z-index:60;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:18px; display:flex; flex-direction:column; gap:10px;
+    max-height:88vh;
+  }
+  #edit-modal .m-head { display:flex; align-items:center; justify-content:space-between; }
+  #edit-modal h3 { font-size:15px; word-break:break-all; }
+  #edit-modal textarea {
+    flex:1; min-height:46vh; resize:vertical;
+    background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px;
+    padding:10px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; outline:none;
+  }
+  #edit-modal .m-foot { display:flex; gap:8px; justify-content:flex-end; align-items:center; }
+  .hidden { display:none !important; }
+  .muted { color:var(--muted); }
+  /* 磁盘侧边栏 */
+  .fm-wrap { display:flex; gap:14px; align-items:flex-start; }
+  #disk-side {
+    width:216px; flex-shrink:0; position:sticky; top:0;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:12px; max-height:calc(100vh - 44px); overflow-y:auto;
+  }
+  #disk-side h3 { font-size:12px; color:var(--muted); letter-spacing:1px; margin-bottom:10px; }
+  .disk-item { padding:9px 10px; border-radius:8px; cursor:pointer; margin-bottom:4px; border:1px solid transparent; }
+  .disk-item:hover { background:var(--panel2); border-color:var(--border); }
+  .disk-item .di-mp { font-size:13px; font-weight:600; word-break:break-all; }
+  .disk-item .di-dev { font-size:11px; color:var(--muted); word-break:break-all; margin-top:1px; }
+  .disk-item .di-bar { height:5px; background:var(--bg); border-radius:99px; margin-top:6px; overflow:hidden; }
+  .disk-item .di-bar i { display:block; height:100%; background:var(--accent); }
+  .disk-item .di-pct { font-size:11px; color:var(--muted); margin-top:3px; }
+  .fm-main { flex:1; min-width:0; }
+</style>
+</head>
+<body>
+  <h1>📁 文件管理</h1>
+  <div class="sub">根目录：<span id="rootbar">/</span> · 左侧列出系统所有磁盘/挂载点，外接硬盘插上即显示</div>
+
+  <div class="fm-wrap">
+  <!-- 磁盘侧边栏（外接 U 盘 / 移动硬盘 / 分区） -->
+  <aside id="disk-side">
+    <h3>💽 磁盘 / 挂载点</h3>
+    <div id="disk-list"><div class="muted" style="font-size:12px">加载中…</div></div>
+  </aside>
+
+  <div class="fm-main">
+  <!-- 面包屑导航 -->
+  <div class="crumbs" id="crumbs"></div>
+
+  <!-- 操作栏 -->
+  <div class="toolbar">
+    <button onclick="goUp()">⬆ 上级</button>
+    <button onclick="refresh()">⟳ 刷新</button>
+    <button onclick="mkdir()">＋ 新建目录</button>
+    <button onclick="newFile()">📄 新建文件</button>
+    <label class="btn" style="display:inline-block">📤 上传<input type="file" id="file-input" style="display:none" onchange="upload()"></label>
+  </div>
+
+  <!-- 文件列表 -->
+  <table>
+    <thead><tr>
+      <th>名称</th><th>权限</th><th>属主</th><th>大小</th><th>修改时间</th><th style="text-align:right">操作</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="err" id="err"></div>
+  </div><!-- /fm-main -->
+  </div><!-- /fm-wrap -->
+
+  <!-- 文本编辑弹窗 -->
+  <div id="edit-mask" class="hidden" onclick="closeEdit()"></div>
+  <div id="edit-modal" class="hidden">
+    <div class="m-head">
+      <h3 id="edit-path">-</h3>
+      <button class="danger" onclick="closeEdit()">✕ 关闭</button>
+    </div>
+    <textarea id="edit-content" spellcheck="false" placeholder="文件内容为空"></textarea>
+    <div class="m-foot">
+      <span class="muted" id="edit-info"></span>
+      <button onclick="closeEdit()">取消</button>
+      <button class="primary" id="btn-save" onclick="saveEdit()">💾 保存</button>
+    </div>
+  </div>
+
+<script>
+/* ---------- 状态 ---------- */
+let currentPath = '/';   // 当前浏览目录（根目录内的相对路径）
+let editingPath = null;  // 正在编辑的文件
+
+/* ---------- 工具 ---------- */
+const $ = (id) => document.getElementById(id);
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/** 调用本插件 API —— 相对路径，经面板网关 /p/file-manager/ 转发 */
+async function call(path, opts) {
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+  return data;
+}
+
+/** 面板侧相对路径拼接（currentPath 为根内路径） */
+function joinPath(name) {
+  return (currentPath === '/' ? '' : currentPath) + '/' + name;
+}
+
+function fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+  return (n / 1073741824).toFixed(2) + ' GB';
+}
+
+function toast(msg, isErr) {
+  const el = $('err');
+  el.textContent = msg || '';
+  el.style.color = isErr ? 'var(--danger)' : 'var(--ok)';
+  clearTimeout(toast._t);
+  if (msg && !isErr) toast._t = setTimeout(() => el.textContent = '', 2600);
+}
+
+/* ---------- 面包屑 ---------- */
+function renderCrumbs() {
+  const box = $('crumbs');
+  box.innerHTML = '';
+  const a = document.createElement('a');
+  a.textContent = '根目录';
+  a.onclick = () => { currentPath = '/'; load(); };
+  box.appendChild(a);
+  if (currentPath !== '/') {
+    const parts = currentPath.split('/').filter(Boolean);
+    let acc = '';
+    parts.forEach((part, i) => {
+      box.appendChild(Object.assign(document.createElement('span'), {className:'sep', textContent:'/'}));
+      acc += '/' + part;
+      if (i === parts.length - 1) {
+        box.appendChild(Object.assign(document.createElement('span'), {className:'cur', textContent:part}));
+      } else {
+        const link = document.createElement('a');
+        link.textContent = part;
+        link.onclick = ((p) => () => { currentPath = p; load(); })(acc);
+        box.appendChild(link);
+      }
+    });
+  }
+}
+
+/* ---------- 目录浏览 ---------- */
+async function load() {
+  try {
+    const d = await call('api/list?path=' + encodeURIComponent(currentPath));
+    $('rootbar').textContent = d.root || '/';
+    renderCrumbs();
+    const tbody = $('tbody');
+    tbody.innerHTML = '';
+    (d.entries || []).forEach(it => {
+      const tr = document.createElement('tr');
+      if (it.dir) tr.className = 'dir-row';
+      const name = esc(it.name);
+      const safeName = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      tr.innerHTML = `
+        <td>${it.dir ? '📁' : '📄'} <span class="fname">${name}</span></td>
+        <td class="mono">${esc(it.mode)}</td>
+        <td class="mono">${esc(it.owner)}</td>
+        <td class="muted">${it.dir ? '—' : fmtSize(it.size)}</td>
+        <td class="muted">${esc(it.mtime)}</td>
+        <td><div class="row-actions">
+          ${it.dir
+            ? `<button onclick="openDir('${safeName}')">打开</button>`
+            : `<button onclick="viewFile('${safeName}')">编辑</button>
+               <button onclick="downloadFile('${safeName}')">下载</button>`}
+          <button onclick="renameFile('${safeName}')">重命名</button>
+          <button class="danger" onclick="deleteFile('${safeName}')">删除</button>
+        </div></td>`;
+      tbody.appendChild(tr);
+    });
+    toast('');
+  } catch (e) { toast(e.message, true); }
+}
+
+function openDir(name) { currentPath = joinPath(name); load(); }
+function goUp() {
+  if (currentPath === '/') return;
+  currentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
+  if (!currentPath) currentPath = '/';
+  load();
+}
+function refresh() { load(); loadDisks(); }
+
+/* ---------- 文本查看/编辑 ---------- */
+async function viewFile(name) {
+  const path = joinPath(name);
+  try {
+    const d = await call('api/read?path=' + encodeURIComponent(path));
+    editingPath = path;
+    $('edit-path').textContent = path;
+    $('edit-content').value = d.content || '';
+    $('edit-info').textContent = fmtSize(d.size || 0);
+    $('edit-mask').classList.remove('hidden');
+    $('edit-modal').classList.remove('hidden');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function saveEdit() {
+  if (!editingPath) return;
+  try {
+    const d = await call('api/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: editingPath, content: $('edit-content').value }),
+    });
+    closeEdit();
+    toast('已保存 ' + editingPath);
+    load();
+  } catch (e) { toast(e.message, true); }
+}
+
+function closeEdit() {
+  editingPath = null;
+  $('edit-mask').classList.add('hidden');
+  $('edit-modal').classList.add('hidden');
+}
+/* Ctrl+S 快捷保存 */
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's' && editingPath) {
+    e.preventDefault();
+    saveEdit();
+  }
+});
+
+/* ---------- 文件操作 ---------- */
+function downloadFile(name) {
+  location.href = 'api/download?path=' + encodeURIComponent(joinPath(name));
+}
+
+async function upload() {
+  const input = $('file-input');
+  if (!input.files.length) return;
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  fd.append('path', currentPath);
+  try {
+    await fetch('api/upload', { method: 'POST', body: fd });
+    input.value = '';
+    toast('上传完成');
+    load();
+  } catch (e) { toast(e.message, true); }
+}
+
+function mkdir() {
+  const name = prompt('新目录名称：');
+  if (!name) return;
+  call('api/mkdir', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: joinPath(name) }),
+  }).then(() => { toast('已创建目录'); load(); }).catch(e => toast(e.message, true));
+}
+
+function newFile() {
+  const name = prompt('新文件名：');
+  if (!name) return;
+  call('api/write', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: joinPath(name), content: '' }),
+  }).then(() => viewFile(name)).catch(e => toast(e.message, true));
+}
+
+function renameFile(name) {
+  const newName = prompt('重命名为：', name);
+  if (!newName || newName === name) return;
+  call('api/rename', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: joinPath(name), new_name: newName }),
+  }).then(() => { toast('已重命名'); load(); }).catch(e => toast(e.message, true));
+}
+
+function deleteFile(name) {
+  const path = joinPath(name);
+  if (!confirm('确定删除 ' + path + ' ？此操作不可恢复。')) return;
+  call('api/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  }).then(() => { toast('已删除'); load(); }).catch(e => toast(e.message, true));
+}
+
+/* ---------- 磁盘侧边栏 ---------- */
+async function loadDisks() {
+  const box = $('disk-list');
+  try {
+    const d = await call('api/disks');
+    box.innerHTML = '';
+    (d.disks || []).forEach(disk => {
+      const item = document.createElement('div');
+      item.className = 'disk-item';
+      item.title = disk.device + ' (' + disk.fstype + ')';
+      item.innerHTML = `
+        <div class="di-mp">💾 ${esc(disk.mountpoint)}</div>
+        <div class="di-dev">${esc(disk.device)}</div>
+        <div class="di-bar"><i style="width:${Math.min(100, disk.percent).toFixed(0)}%"></i></div>
+        <div class="di-pct">${fmtSize(disk.used)} / ${fmtSize(disk.total)} (${disk.percent.toFixed(1)}%)</div>`;
+      item.onclick = () => { currentPath = disk.mountpoint; load(); };
+      box.appendChild(item);
+    });
+    if (!(d.disks || []).length) box.innerHTML = '<div class="muted" style="font-size:12px">（无可用磁盘）</div>';
+  } catch (e) { box.innerHTML = '<div class="muted" style="font-size:12px">' + esc(e.message) + '</div>'; }
+}
+
+/* ---------- 启动 ---------- */
+load();
+loadDisks();
+</script>
+</body>
+</html>

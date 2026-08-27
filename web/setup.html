@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>初始化 · IotaPanel</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="auth-body">
+<div class="auth-card wide">
+  <div class="auth-brand">
+    <img src="/favicon.svg" alt="IotaPanel" class="auth-logo">
+    <h1 class="auth-title">欢迎使用 IotaPanel</h1>
+    <p class="auth-sub">完成以下设置即可开始使用</p>
+  </div>
+
+  <!-- 步骤 1：管理员账号 -->
+  <div id="step-1">
+    <form id="setup-form" autocomplete="off">
+      <label class="field">
+        <span class="field-label">管理员用户名</span>
+        <input type="text" id="admin-user" autocomplete="username" required>
+        <small id="user-hint">3-32 位，仅限字母数字与下划线</small>
+      </label>
+      <label class="field">
+        <span class="field-label">密码</span>
+        <input type="password" id="admin-pass" autocomplete="new-password" required minlength="6">
+      </label>
+      <label class="field">
+        <span class="field-label">确认密码</span>
+        <input type="password" id="admin-pass2" autocomplete="new-password" required minlength="6">
+      </label>
+      <button type="button" class="btn primary full" id="btn-next">下一步</button>
+    </form>
+  </div>
+
+  <!-- 步骤 2：选择插件 -->
+  <div id="step-2" hidden>
+    <h2 class="step-title">选择要安装的插件</h2>
+    <p class="step-sub">已内嵌官方插件，可随时在商店补充安装</p>
+    <div id="plugin-list" class="plugin-grid"></div>
+    <div id="setup-progress" class="progress-wrap" hidden>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text"></div>
+    </div>
+    <div class="step-actions">
+      <button class="btn ghost" id="btn-back">上一步</button>
+      <button class="btn primary" id="btn-finish">完成安装</button>
+    </div>
+  </div>
+
+  <!-- 步骤 3：完成 -->
+  <div id="step-3" hidden>
+    <div class="done-ico">✓</div>
+    <h2 class="step-title" id="done-title">面板已就绪</h2>
+    <div class="step-actions center">
+      <button class="btn primary" id="btn-enter">进入面板</button>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const S1=document.getElementById('step-1'), S2=document.getElementById('step-2'), S3=document.getElementById('step-3');
+  const err = (t) => { alert(typeof t==='string'?t:(t&&t.error)||('错误: '+JSON.stringify(t))); };
+  // 检查是否已初始化
+  try {
+    const st = await (await fetch('/api/setup/state')).json();
+    if (st.configured) { window.location.href='/'; return; }
+  } catch(e) { console.warn('state', e); }
+
+  // 加载商店列表（未初始化时后端对 /api/store 开放）
+  let store = [];
+  try {
+    const r = await fetch('/api/store');
+    const j = await r.json();
+    store = (j.store||[]).filter(p=>!p.installed);
+  } catch(e) {}
+  const list = document.getElementById('plugin-list');
+  if (store.length) {
+    store.forEach(p=>{
+      const el=document.createElement('label');
+      el.className='plugin-card';
+      el.innerHTML=`<input type="checkbox" value="${p.name}" checked>
+        <div class="pc-body"><div class="pc-title">${p.title||p.name}</div>
+        <div class="pc-desc">${p.description||''}</div>
+        <div class="pc-meta">v${p.version||'?'} · ${p.language||''}</div></div>`;
+      list.appendChild(el);
+    });
+  } else {
+    list.innerHTML='<div class="empty">暂无可用插件</div>';
+  }
+
+  function go(n){S1.hidden=n!==1;S2.hidden=n!==2;S3.hidden=n!==3;}
+
+  document.getElementById('btn-next').onclick=()=>{
+    const u=document.getElementById('admin-user').value.trim();
+    const p=document.getElementById('admin-pass').value;
+    const p2=document.getElementById('admin-pass2').value;
+    if(u.length<3||u.length>32){alert('用户名需 3-32 位');return;}
+    if(p.length<6){alert('密码至少 6 位');return;}
+    if(p!==p2){alert('两次密码不一致');return;}
+    go(2);
+  };
+  document.getElementById('btn-back').onclick=()=>go(1);
+
+  document.getElementById('btn-finish').onclick=async ()=>{
+    const plugins=[...document.querySelectorAll('#plugin-list input:checked')].map(i=>i.value);
+    const prog=document.getElementById('setup-progress');
+    const fill=document.getElementById('progress-fill');
+    const ptext=document.getElementById('progress-text');
+    prog.hidden=false;
+    try{
+      const r=await fetch('/api/setup/start',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:document.getElementById('admin-user').value.trim(),
+          password:document.getElementById('admin-pass').value,plugins})});
+      if(!r.ok){err(await r.json());return;}
+      go(2);
+      // 轮询进度
+      const iv=setInterval(async ()=>{
+        try{
+          const j=await (await fetch('/api/setup/status')).json();
+          if(j.total>0) fill.style.width=(j.done/j.total*100)+'%';
+          ptext.textContent=j.current||'处理中…';
+          if(j.complete){clearInterval(iv);go(3);}
+          else if(j.error){clearInterval(iv);err(j.error);prog.hidden=true;}
+        }catch(e){ }
+      },400);
+    }catch(e){err(e.message);}
+  };
+  document.getElementById('btn-enter').onclick=()=>{window.location.href='/';return;};
+});
+</script>
+</body>
+</html>

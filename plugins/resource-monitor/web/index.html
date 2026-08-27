@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<!--
+  资源监控插件前端页面（纯 HTML/CSS/JS）
+  每 2 秒轮询一次 api/stats 展示 CPU / 内存 / 交换分区 / 负载 / 磁盘 / 进程 / 网络
+
+  重要：所有 AJAX 使用【相对路径】(api/...)，
+        经面板网关转发后为 /p/<插件名>/api/...（绝对路径 /api/... 会打到面板 404）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>资源监控</title>
+<style>
+  :root { --bg:#f6f4ef; --panel:#ffffff; --panel2:#f1f2ec; --border:#e3ddd0; --text:#3d3a33; --muted:#8b8678; --accent:#7d9b76; --accent-hi:#5e7f58; --ok:#7fa05e; --warn:#d9a441; --danger:#c2715f; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; padding:22px 26px; font-size:14px; }
+  h1 { font-size:17px; }
+  .sub { color:var(--muted); font-size:12px; margin:4px 0 16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin-bottom:16px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .card h3 { font-size:13px; color:var(--muted); font-weight:500; margin-bottom:10px; }
+  .big { font-size:24px; font-weight:700; }
+  .bar-track { height:8px; background:var(--bg); border-radius:99px; overflow:hidden; margin-top:10px; }
+  .bar { height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--ok)); transition:width .5s ease; }
+  .row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--border); font-size:13px; }
+  .row:last-child { border-bottom:none; }
+  .muted { color:var(--muted); }
+  /* 进程表 & 网络 */
+  .card.wide { grid-column:1/-1; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:500; }
+  tr:hover td { background:var(--panel2); }
+  .num { text-align:right; font-family:ui-monospace,Consolas,monospace; }
+  .bar-mini { display:inline-block; width:90px; height:6px; background:var(--bg); border-radius:99px; overflow:hidden; vertical-align:middle; }
+  .bar-mini i { display:block; height:100%; background:var(--accent); }
+  .rate { color:var(--ok); font-family:ui-monospace,Consolas,monospace; }
+</style>
+</head>
+<body>
+  <h1>📈 资源监控</h1>
+  <div class="sub">主机：<span id="host" class="muted">-</span> · 每 2 秒自动刷新 · 进程按 CPU 排序</div>
+
+  <div class="grid">
+    <!-- CPU 使用率 -->
+    <div class="card">
+      <h3>CPU 使用率</h3>
+      <div class="big" id="cpu">-</div>
+      <div class="bar-track"><div class="bar" id="cpu-bar"></div></div>
+    </div>
+    <!-- 内存 -->
+    <div class="card">
+      <h3>内存</h3>
+      <div class="big" id="mem">-</div>
+      <div class="bar-track"><div class="bar" id="mem-bar"></div></div>
+      <div class="row" style="margin-top:10px"><span class="muted">已用 / 总量</span><span id="mem-used">-</span></div>
+      <div class="row"><span class="muted">可用</span><span id="mem-avail">-</span></div>
+    </div>
+    <!-- 交换分区 -->
+    <div class="card">
+      <h3>交换分区</h3>
+      <div class="big" id="swap">-</div>
+      <div class="bar-track"><div class="bar" id="swap-bar"></div></div>
+      <div class="row" style="margin-top:10px"><span class="muted">已用 / 总量</span><span id="swap-used">-</span></div>
+    </div>
+    <!-- 系统负载 -->
+    <div class="card">
+      <h3>系统负载 & 磁盘</h3>
+      <div class="row"><span class="muted">负载 (1/5/15)</span><span id="loads">-</span></div>
+      <div class="row"><span class="muted">运行时长</span><span id="uptime">-</span></div>
+      <div class="row"><span class="muted">磁盘 (/)</span><span id="disk-line">-</span></div>
+      <div class="bar-track"><div class="bar" id="disk-bar"></div></div>
+    </div>
+
+    <!-- 进程列表 -->
+    <div class="card wide">
+      <h3>进程（按 CPU 排序，前 15）</h3>
+      <table>
+        <thead><tr><th>PID</th><th>名称</th><th class="num">CPU %</th><th class="num">内存</th></tr></thead>
+        <tbody id="proc-body"><tr><td colspan="4" class="muted">加载中…</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- 网络流量 -->
+    <div class="card wide">
+      <h3>网络流量</h3>
+      <div class="row"><span class="muted">下行速率</span><span class="rate" id="net-rx">-</span></div>
+      <div class="row"><span class="muted">上行速率</span><span class="rate" id="net-tx">-</span></div>
+      <div class="row"><span class="muted">累计接收 / 发送</span><span id="net-total">-</span></div>
+    </div>
+  </div>
+
+<script>
+/* ---------- 工具 ---------- */
+const $ = (id) => document.getElementById(id);
+
+function fmtSize(n) {
+  if (n == null) return '-';
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n/1024).toFixed(1) + ' KB';
+  if (n < 1073741824) return (n/1048576).toFixed(1) + ' MB';
+  if (n < 1099511627776) return (n/1073741824).toFixed(1) + ' GB';
+  return (n/1099511627776).toFixed(2) + ' TB';
+}
+
+function fmtRate(n) {
+  if (n == null) return '-';
+  return fmtSize(n) + '/s';
+}
+
+/** 设置百分比条 */
+function setBar(id, pct) {
+  $(id).style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+}
+
+/* ---------- 拉取并渲染统计数据（相对路径 → 走面板网关） ---------- */
+async function tick() {
+  try {
+    const d = await (await fetch('api/stats')).json();
+
+    // CPU
+    $('cpu').textContent = d.cpu_percent.toFixed(1) + '%';
+    setBar('cpu-bar', d.cpu_percent);
+
+    // 内存
+    $('mem').textContent = d.mem.percent.toFixed(1) + '%';
+    setBar('mem-bar', d.mem.percent);
+    $('mem-used').textContent = fmtSize(d.mem.used) + ' / ' + fmtSize(d.mem.total);
+    $('mem-avail').textContent = fmtSize(d.mem.available);
+
+    // 交换分区
+    $('swap').textContent = d.swap.total > 0 ? d.swap.percent.toFixed(1) + '%' : '未启用';
+    setBar('swap-bar', d.swap.percent);
+    $('swap-used').textContent = d.swap.total > 0 ? (fmtSize(d.swap.used) + ' / ' + fmtSize(d.swap.total)) : '-';
+
+    // 负载 / 时长 / 磁盘
+    $('loads').textContent = d.load[0].toFixed(2) + ' / ' + d.load[1].toFixed(2) + ' / ' + d.load[2].toFixed(2);
+    const up = Math.floor(d.uptime);
+    $('uptime').textContent = Math.floor(up/86400) + '天 ' + Math.floor(up%86400/3600) + '时 ' + Math.floor(up%3600/60) + '分';
+    $('disk-line').textContent = fmtSize(d.disk.used) + ' / ' + fmtSize(d.disk.total);
+    setBar('disk-bar', d.disk.percent);
+
+    // 进程表
+    const tb = $('proc-body');
+    tb.innerHTML = '';
+    (d.processes || []).forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono" style="font-family:ui-monospace,monospace">${p.pid}</td>
+        <td>${esc(p.name)}</td>
+        <td class="num"><span class="bar-mini"><i style="width:${Math.min(100,p.cpu)}%"></i></span> ${p.cpu.toFixed(1)}%</td>
+        <td class="num">${fmtSize(p.mem)}</td>`;
+      tb.appendChild(tr);
+    });
+
+    // 网络
+    $('net-rx').textContent = fmtRate(d.network.rx_rate);
+    $('net-tx').textContent = fmtRate(d.network.tx_rate);
+    $('net-total').textContent = fmtSize(d.network.total_rx) + ' / ' + fmtSize(d.network.total_tx);
+
+    $('host').textContent = d.hostname || '-';
+  } catch { /* 插件被停止时静默处理 */ }
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* 每 2 秒刷新一次 */
+tick();
+setInterval(tick, 2000);
+</script>
+</body>
+</html>

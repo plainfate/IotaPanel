@@ -1,0 +1,8 @@
+[package]
+name = "iotapanel-sdk"
+version = "0.4.0"
+edition = "2021"
+description = "IotaPanel 共享基础库：迷你 HTTP 服务器 / WebSocket / 工具函数"
+
+[dependencies]
+serde_json = "1"

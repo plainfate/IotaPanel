@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "sdk",
+    "core",
+    "plugins/hello",
+    "plugins/file-manager",
+    "plugins/resource-monitor",
+    "plugins/terminal",
+    "plugins/https-front",
+    "plugins/mcp-agent",
+]
+
+[profile.dev]
+panic = "abort"
+
+incremental = false
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+panic = "abort"

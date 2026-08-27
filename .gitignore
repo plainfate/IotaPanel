@@ -1,0 +1,8 @@
+/target
+bin/
+/core/embed/
+*.gz
+*.tar.gz
+Cargo.lock.orig
+*~
+.DS_Store

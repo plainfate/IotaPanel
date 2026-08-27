@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<!--
+  网页终端（轻量：xterm.js + WebSocket）
+  经面板网关 /p/terminal/ 访问；WS 用相对路径，自动适配宿主。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>终端</title>
+<link rel="stylesheet" href="lib/xterm.css">
+<style>
+  :root { --bg:#f6f4ef; --panel:#ffffff; --border:#e3ddd0; --text:#3d3a33; --muted:#8b8678; --accent:#7d9b76; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; height:100vh; display:flex; flex-direction:column; padding:14px; gap:10px; }
+  .bar { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); }
+  .bar b { color:var(--accent); font-weight:600; }
+  .term-box {
+    flex:1; background:#1e1e1e; border:1px solid var(--border); border-radius:12px;
+    padding:10px 8px; overflow:hidden;
+  }
+  #term { width:100%; height:100%; }
+  .hint { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <b>💻 终端</b>
+    <span id="conn">连接中…</span>
+    <span class="hint">· 退出登录或关闭页面后会话自动结束</span>
+  </div>
+  <div class="term-box"><div id="term"></div></div>
+
+<script src="lib/xterm.js"></script>
+<script src="lib/fit.js"></script>
+<script>
+/* ---------- 初始化终端 ---------- */
+const term = new Terminal({
+  cursorBlink: true,
+  fontSize: 13,
+  fontFamily: 'ui-monospace, Consolas, "Courier New", monospace',
+  theme: {
+    background: '#1e1e1e', foreground: '#e8e6df',
+    cursor: '#7d9b76', selectionBackground: 'rgba(125,155,118,.35)',
+    black:'#1e1e1e', red:'#c2715f', green:'#7fa05e', yellow:'#d9a441',
+    blue:'#7d9db5', magenta:'#b5737a', cyan:'#6f9a8e', white:'#e8e6df',
+  },
+});
+term.open(document.getElementById('term'));
+
+/* ---------- WebSocket 桥接（相对路径 → 面板网关） ---------- */
+const wsBase = location.pathname.replace(/\/[^/]*$/, '');
+const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+const ws = new WebSocket(proto + location.host + wsBase + '/ws');
+ws.binaryType = 'arraybuffer';
+const connEl = document.getElementById('conn');
+
+ws.onopen = () => { connEl.textContent = '已连接'; sendResize(); };
+ws.onclose = () => { connEl.textContent = '已断开'; term.write('\r\n\x1b[31m[连接已断开]\x1b[0m\r\n'); };
+ws.onerror = () => { connEl.textContent = '连接错误'; };
+ws.onmessage = (e) => { term.write(new Uint8Array(e.data)); };
+term.onData((d) => { if (ws.readyState === 1) ws.send(d); });
+
+/* ---------- 自适应尺寸 ---------- */
+const fitAddon = new FitAddon.FitAddon();
+term.loadAddon(fitAddon);
+
+function sendResize() {
+  fitAddon.fit();
+  if (ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+  }
+}
+window.addEventListener('resize', sendResize);
+</script>
+</body>
+</html>
