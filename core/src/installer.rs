@@ -217,32 +217,37 @@ fn clean_rel_path(p: &Path) -> Result<String, String> {
     Ok(parts.join("/"))
 }
 
-/// 极简阻塞 HTTP 客户端（GET），够下载插件包用；支持 https 时由调用方保证平台 TLS。
-/// 这里只实现 http:// —— 插件生态约定 GitHub Release 直链（https），
-/// 因此 https 通过系统 curl 子进程兜底，保持零 TLS 依赖。
+/// 极简阻塞 HTTP 客户端（GET），够下载插件包用。
+///
+/// 策略：
+/// - `https://` 走系统 `curl -fsSL`（跟随重定向；绝大多数发行版预装，Alpine 需 `apk add curl`）
+/// - `http://` 用内置客户端，**跟随 3xx 重定向**（最多 5 跳）；
+///   若重定向目标是 `https://`（如 Cloudflare 强制跳转），自动转交 curl 分支。
 pub fn http_get(url: &str, timeout_secs: u64, max_size: usize) -> Result<Vec<u8>, String> {
-    if url.starts_with("https://") {
-        // 走系统 curl（绝大多数发行版预装）；参数收紧：跟随重定向、限速防护
-        let out = std::process::Command::new("curl")
-            .args([
-                "-fsSL",
-                "--max-time",
-                &timeout_secs.to_string(),
-                "--max-filesize",
-                &max_size.to_string(),
-                url,
-            ])
-            .output()
-            .map_err(|e| format!("下载失败: {}", e))?;
-        if !out.status.success() {
-            return Err(format!("下载失败: curl 退出码 {:?}", out.status.code()));
+    let mut url = url.to_string();
+    for _ in 0..6 {
+        if url.starts_with("https://") {
+            return http_get_curl(&url, timeout_secs, max_size);
         }
-        if out.stdout.len() > max_size {
-            return Err("下载内容超过大小上限".into());
+        match http_get_once(&url, timeout_secs, max_size)? {
+            HttpResult::Done(body) => return Ok(body),
+            HttpResult::Redirect(next) => url = next,
         }
-        return Ok(out.stdout);
     }
-    // http:// 用内置客户端
+    Err("重定向次数过多".into())
+}
+
+enum HttpResult {
+    Done(Vec<u8>),
+    Redirect(String),
+}
+
+/// 单次 http:// 请求：200 → Done；3xx + Location → Redirect（相对路径按原 host 拼接）。
+fn http_get_once(
+    url: &str,
+    timeout_secs: u64,
+    max_size: usize,
+) -> Result<HttpResult, String> {
     let rest = url.strip_prefix("http://").unwrap();
     let (hostport, path) = match rest.split_once('/') {
         Some((h, p)) => (h.to_string(), format!("/{}", p)),
@@ -264,7 +269,6 @@ pub fn http_get(url: &str, timeout_secs: u64, max_size: usize) -> Result<Vec<u8>
     stream.write_all(req.as_bytes()).map_err(|e| format!("下载失败: {}", e))?;
     let mut buf = Vec::new();
     stream.read_to_end(&mut buf).map_err(|e| format!("读取下载内容失败: {}", e))?;
-    // 切状态行 / 头 / 体（Connection: close，读到 EOF 即完整 body）
     let sep = window_find(&buf, b"\r\n\r\n")?;
     let head = String::from_utf8_lossy(&buf[..sep]).to_string();
     let status_line = head.lines().next().unwrap_or("");
@@ -273,14 +277,50 @@ pub fn http_get(url: &str, timeout_secs: u64, max_size: usize) -> Result<Vec<u8>
         .nth(1)
         .and_then(|c| c.parse().ok())
         .unwrap_or(0);
-    if code != 200 {
-        return Err(format!("下载失败: HTTP {}", code));
-    }
     let body = buf[sep + 4..].to_vec();
     if body.len() > max_size {
         return Err("下载内容超过大小上限".into());
     }
-    Ok(body)
+    match code {
+        200 => Ok(HttpResult::Done(body)),
+        301 | 302 | 303 | 307 | 308 => {
+            let loc = head
+                .lines()
+                .find_map(|l| l.strip_prefix("Location:").or_else(|| l.strip_prefix("location:")))
+                .map(|v| v.trim().to_string())
+                .ok_or_else(|| format!("重定向响应缺少 Location: HTTP {}", code))?;
+            let next = if loc.starts_with("http://") || loc.starts_with("https://") {
+                loc
+            } else {
+                // 相对路径重定向：拼回原 host
+                format!("http://{}{}", hostport, if loc.starts_with('/') { loc } else { format!("/{}", loc) })
+            };
+            Ok(HttpResult::Redirect(next))
+        }
+        other => Err(format!("下载失败: HTTP {}", other)),
+    }
+}
+
+/// https:// 走系统 curl（跟随重定向、限速防护）。
+fn http_get_curl(url: &str, timeout_secs: u64, max_size: usize) -> Result<Vec<u8>, String> {
+    let out = std::process::Command::new("curl")
+        .args([
+            "-fsSL",
+            "--max-time",
+            &timeout_secs.to_string(),
+            "--max-filesize",
+            &max_size.to_string(),
+            url,
+        ])
+        .output()
+        .map_err(|e| format!("下载失败（需要系统 curl，Alpine: apk add curl）: {}", e))?;
+    if !out.status.success() {
+        return Err(format!("下载失败: curl 退出码 {:?}", out.status.code()));
+    }
+    if out.stdout.len() > max_size {
+        return Err("下载内容超过大小上限".into());
+    }
+    Ok(out.stdout)
 }
 
 fn window_find(haystack: &[u8], needle: &[u8]) -> Result<usize, String> {
