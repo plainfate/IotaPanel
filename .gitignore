@@ -8,3 +8,4 @@ Cargo.lock.orig
 *~
 .DS_Store
 /release/
+release_*.log

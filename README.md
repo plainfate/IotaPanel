@@ -55,10 +55,10 @@ sudo ./install.sh                     # 安装 + systemd 启动（Alpine 自动�
 sudo ./install.sh --home /data/panel  # 指定数据目录
 ```
 
-从 GitHub Release 一键安装（自动检测 x86_64、aarch64、armv7 或 i686，并下载对应 musl 静态包）：
+从 GitHub Release 一键安装（自动识别系统与架构：x86_64、aarch64、armv7 或 i686，下载对应 musl 静态包，任意 Linux 发行版通用）：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/plainfate/IotaPanel/main/deploy.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/plainfate/IotaPanel/rust-musl-rewrite/deploy.sh | sudo bash
 # 指定版本、数据目录或安装前缀：
 sudo bash deploy.sh --version v0.4.0 --home /data/panel --prefix /usr/local
 ```
