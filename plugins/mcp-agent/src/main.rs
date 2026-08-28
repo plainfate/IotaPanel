@@ -150,7 +150,7 @@ impl PanelClient {
         PanelClient { addr: addr.to_string(), user: user.to_string(), pass: pass.to_string(), cookie: String::new() }
     }
 
-    fn raw_request(&mut self, method: &str, path: &str, body: &str) -> (u16, Vec<u8>) {
+    fn raw_request(&mut self, method: &str, path: &str, body: &str) -> (u16, Vec<(String, String)>, Vec<u8>) {
         let mut req = format!(
             "{} {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n",
             method, path, self.addr
@@ -168,7 +168,7 @@ impl PanelClient {
                 let _ = s.read_to_end(&mut buf);
                 parse_http_response(&buf)
             }
-            Err(_) => (0, b"connection failed".to_vec()),
+            Err(_) => (0, Vec::new(), b"connection failed".to_vec()),
         }
     }
 
@@ -176,24 +176,28 @@ impl PanelClient {
         if self.cookie.is_empty() && !self.pass.is_empty() {
             self.try_login();
         }
-        let (code, b) = self.raw_request(method, path, body);
+        let (code, _, b) = self.raw_request(method, path, body);
         if code == 401 && !self.pass.is_empty() {
             self.try_login();
-            return self.raw_request(method, path, body);
+            let (code2, _, b2) = self.raw_request(method, path, body);
+            return (code2, b2);
         }
         (code, b)
     }
 
+    /// 面板登录：会话令牌在 **Set-Cookie 响应头** 里（不在 body），
+    /// 从 headers 解析 `mp_session=<token>`。旧版在 body 里找永远失败，
+    /// 导致带 api=true 的会话拿不到 cookie、写操作恒 401。
     fn try_login(&mut self) {
         let payload = serde_json::json!({"username": self.user, "password": self.pass, "api": true}).to_string();
-        let (code, buf) = self.raw_request("POST", "/api/login", &payload);
+        let (code, headers, _) = self.raw_request("POST", "/api/login", &payload);
         if code == 200 {
-            if let Ok(txt) = String::from_utf8(buf) {
-                for part in txt.split("mp_session=") {
-                    if part.len() > 2 {
-                        let v = part.split(';').next().unwrap_or("").trim().to_string();
-                        if !v.is_empty() {
-                            self.cookie = v;
+            for (k, v) in &headers {
+                if k.eq_ignore_ascii_case("set-cookie") {
+                    if let Some(tok) = v.trim().strip_prefix("mp_session=") {
+                        let tok = tok.split(';').next().unwrap_or("").trim().to_string();
+                        if !tok.is_empty() {
+                            self.cookie = tok;
                             return;
                         }
                     }
@@ -203,21 +207,29 @@ impl PanelClient {
     }
 }
 
-fn parse_http_response(buf: &[u8]) -> (u16, Vec<u8>) {
+/// 解析面板 HTTP 响应：返回 (状态码, 响应头列表, body)。头里带 Set-Cookie（登录用）。
+fn parse_http_response(buf: &[u8]) -> (u16, Vec<(String, String)>, Vec<u8>) {
     let text = String::from_utf8_lossy(buf);
     let mut status = 0u16;
+    let mut headers = Vec::new();
     let mut body = Vec::new();
     // 找头部结束
     if let Some(pos) = find_sub(buf, b"\r\n\r\n") {
         let head = &text[..pos];
-        if let Some(line) = head.lines().next() {
+        let mut lines = head.lines();
+        if let Some(line) = lines.next() {
             let mut it = line.split_whitespace();
             it.next();
             status = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
         }
+        for line in lines {
+            if let Some((k, v)) = line.split_once(':') {
+                headers.push((k.trim().to_string(), v.trim().to_string()));
+            }
+        }
         body = buf[pos + 4..].to_vec();
     }
-    (status, body)
+    (status, headers, body)
 }
 
 fn find_sub(hay: &[u8], needle: &[u8]) -> Option<usize> {
