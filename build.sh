@@ -48,18 +48,22 @@ if [[ -n "$TARGET" ]]; then
     x86_64-unknown-linux-musl)
       export CC_x86_64_unknown_linux_musl="${CC_x86_64_unknown_linux_musl:-musl-gcc}"
       export AR_x86_64_unknown_linux_musl="${AR_x86_64_unknown_linux_musl:-musl-ar}"
+      export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER="${CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER:-musl-gcc}"
       ;;
     aarch64-unknown-linux-musl)
       export CC_aarch64_unknown_linux_musl="${CC_aarch64_unknown_linux_musl:-aarch64-linux-musl-gcc}"
       export AR_aarch64_unknown_linux_musl="${AR_aarch64_unknown_linux_musl:-aarch64-linux-musl-ar}"
+      export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="${CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER:-aarch64-linux-musl-gcc}"
       ;;
     armv7-unknown-linux-musleabihf)
       export CC_armv7_unknown_linux_musleabihf="${CC_armv7_unknown_linux_musleabihf:-arm-linux-musleabihf-gcc}"
       export AR_armv7_unknown_linux_musleabihf="${AR_armv7_unknown_linux_musleabihf:-arm-linux-musleabihf-ar}"
+      export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER="${CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER:-arm-linux-musleabihf-gcc}"
       ;;
     i686-unknown-linux-musl)
       export CC_i686_unknown_linux_musl="${CC_i686_unknown_linux_musl:-i486-linux-musl-gcc}"
       export AR_i686_unknown_linux_musl="${AR_i686_unknown_linux_musl:-i486-linux-musl-ar}"
+      export CARGO_TARGET_I686_UNKNOWN_LINUX_MUSL_LINKER="${CARGO_TARGET_I686_UNKNOWN_LINUX_MUSL_LINKER:-i486-linux-musl-gcc}"
       ;;
   esac
 fi
