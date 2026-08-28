@@ -43,12 +43,23 @@ done
 
 if [[ -n "$TARGET" ]]; then
   echo ">> 目标平台: $TARGET"
+  # 若无显式指定交叉编译器，则按约定在 PATH 中查找 musl.cc 命名的工具链。
   case "$TARGET" in
     x86_64-unknown-linux-musl)
       export CC_x86_64_unknown_linux_musl="${CC_x86_64_unknown_linux_musl:-musl-gcc}"
+      export AR_x86_64_unknown_linux_musl="${AR_x86_64_unknown_linux_musl:-musl-ar}"
       ;;
     aarch64-unknown-linux-musl)
       export CC_aarch64_unknown_linux_musl="${CC_aarch64_unknown_linux_musl:-aarch64-linux-musl-gcc}"
+      export AR_aarch64_unknown_linux_musl="${AR_aarch64_unknown_linux_musl:-aarch64-linux-musl-ar}"
+      ;;
+    armv7-unknown-linux-musleabihf)
+      export CC_armv7_unknown_linux_musleabihf="${CC_armv7_unknown_linux_musleabihf:-arm-linux-musleabihf-gcc}"
+      export AR_armv7_unknown_linux_musleabihf="${AR_armv7_unknown_linux_musleabihf:-arm-linux-musleabihf-ar}"
+      ;;
+    i686-unknown-linux-musl)
+      export CC_i686_unknown_linux_musl="${CC_i686_unknown_linux_musl:-i486-linux-musl-gcc}"
+      export AR_i686_unknown_linux_musl="${AR_i686_unknown_linux_musl:-i486-linux-musl-ar}"
       ;;
   esac
 fi
@@ -63,7 +74,7 @@ echo ">> [1/4] 编译 SDK + 插件: cargo ${CARGO_ARGS[*]} --workspace --exclude
 cargo "${CARGO_ARGS[@]}" --workspace --exclude iotapanel-core
 
 echo ">> [2/4] 生成内嵌资源表 core/src/embedded_data.rs"
-for name in hello file-manager resource-monitor terminal https-front mcp-agent; do
+for name in hello resource-monitor terminal https-front mcp-agent; do
   src="$RELDIR/iotapanel-plugin-$name"
   if [[ -f "$src" ]]; then
     mkdir -p "plugins/$name/bin"
@@ -79,7 +90,7 @@ cargo "${CARGO_ARGS[@]}" -p iotapanel-core
 echo ">> [4/4] 组装 bin/"
 mkdir -p bin
 cp -f "$RELDIR/iotapanel" bin/iotapanel
-for name in hello file-manager resource-monitor terminal https-front mcp-agent; do
+for name in hello resource-monitor terminal https-front mcp-agent; do
   [[ -f "$RELDIR/iotapanel-plugin-$name" ]] && cp -f "$RELDIR/iotapanel-plugin-$name" "bin/iotapanel-plugin-$name"
 done
 ln -sf iotapanel bin/panel

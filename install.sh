@@ -64,7 +64,7 @@ ln -sf "$SERVICE" "$BIN_DIR/panel"
 
 # 插件二进制约装到数据目录（面板冷启动/保活自动拉起）
 PLUGIN_DIR="$PANEL_HOME/plugins"
-for p in hello file-manager resource-monitor terminal https-front mcp-agent; do
+for p in hello resource-monitor terminal https-front mcp-agent; do
   mkdir -p "$PLUGIN_DIR/$p/bin"
   if [[ -f "$ROOT/bin/iotapanel-plugin-$p" ]]; then
     cp -f "$ROOT/bin/iotapanel-plugin-$p" "$PLUGIN_DIR/$p/bin/$p"
