@@ -43,9 +43,11 @@ def build():
     for rel in walk_files(os.path.join(ROOT, "web")):
         entries.append(f'    asset!("{rel}", "{rel}"),')
 
-    # ---- 官方插件 ----
+    # ---- 官方插件（跳过 .deprecated/ 等存档目录） ----
     plugins_dir = os.path.join(ROOT, "plugins")
     for name in sorted(os.listdir(plugins_dir)):
+        if name.startswith("."):  # 跳过 .deprecated 等隐藏/存档目录
+            continue
         pdir = os.path.join(plugins_dir, name)
         if not os.path.isdir(pdir):
             continue

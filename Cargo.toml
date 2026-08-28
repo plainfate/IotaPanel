@@ -4,11 +4,11 @@ members = [
     "sdk",
     "core",
     "plugins/hello",
-    "plugins/file-manager",
     "plugins/resource-monitor",
     "plugins/terminal",
     "plugins/https-front",
     "plugins/mcp-agent",
+    # plugins/file-manager 已移除（被 disk-manager 替代，仅作历史存档保留在 plugins/.deprecated/）
 ]
 
 [profile.dev]
