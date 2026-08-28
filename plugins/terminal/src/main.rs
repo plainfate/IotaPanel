@@ -30,6 +30,9 @@ use std::os::unix::io::RawFd;
 use std::sync::Arc;
 
 const INDEX_HTML: &str = include_str!("../web/index.html");
+const XTERM_JS: &str = include_str!("../web/lib/xterm.js");
+const XTERM_CSS: &str = include_str!("../web/lib/xterm.css");
+const FIT_JS: &str = include_str!("../web/lib/fit.js");
 
 fn main() {
     let bind = std::env::var("PLUGIN_BIND").unwrap_or_else(|_| "127.0.0.1".into());
@@ -93,8 +96,23 @@ fn upgrade(stream: &TcpStream, req: &Request) -> Result<WsStream, std::io::Error
 }
 
 fn http_handler(req: &Request, idx: &str) -> Response {
+    // 静态资源（经面板网关 /p/terminal/lib/* 提供给浏览器）。
+    // 注意：原先这里把所有 GET 都回退到 index.html，导致 xterm.js/css
+    // 全部拿到 HTML，浏览器 Terminal 未定义、终端无法初始化（"无法连接"）。
     match (req.method.as_str(), req.path.as_str()) {
         ("GET" | "HEAD", "/api/health") => Response::json(&serde_json::json!({"ok": true})),
+        ("GET" | "HEAD", "/lib/xterm.js") => Response::new(200)
+            .header("Content-Type", "application/javascript; charset=utf-8")
+            .header("Cache-Control", "public, max-age=86400")
+            .with_body(XTERM_JS.as_bytes().to_vec()),
+        ("GET" | "HEAD", "/lib/xterm.css") => Response::new(200)
+            .header("Content-Type", "text/css; charset=utf-8")
+            .header("Cache-Control", "public, max-age=86400")
+            .with_body(XTERM_CSS.as_bytes().to_vec()),
+        ("GET" | "HEAD", "/lib/fit.js") => Response::new(200)
+            .header("Content-Type", "application/javascript; charset=utf-8")
+            .header("Cache-Control", "public, max-age=86400")
+            .with_body(FIT_JS.as_bytes().to_vec()),
         ("GET" | "HEAD", _) => {
             let mut r = Response::html(idx);
             r.headers.push(("Cache-Control".into(), "no-cache".into()));
