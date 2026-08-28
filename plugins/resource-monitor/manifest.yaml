@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 plainfate <https://github.com/plainfate>
+# 插件元信息（manifest.yaml）
+name: resource-monitor
+title: 资源监控
+version: 0.1.0
+author: IotaPanel 官方
+description: 实时查看 CPU、内存、负载与磁盘使用情况
+language: rust
+command: bin/resource-monitor
+bind: 127.0.0.1
+menus:
+  - title: 资源监控
+    icon: 📈
+    path: /
+    section: system

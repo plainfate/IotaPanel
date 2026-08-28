@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MCP Agent · IotaPanel</title>
+<style>
+:root{--bg:#f6f4ef;--card:#ffffff;--text:#33393f;--muted:#7e8a94;--accent:#5e7f58;--ok:#5e7f58;--err:#c46a5a;--border:#e4e0d6}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:24px;min-height:100vh}
+.wrap{max-width:680px;margin:0 auto}
+.band{background:linear-gradient(135deg,#7a9b7a,#5e7f58);border-radius:10px;padding:18px 22px;margin-bottom:16px}
+.band h1{font-size:20px;color:#fff}
+.band .sub{font-size:13px;color:rgba(255,255,255,.85);margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:14px}
+.t{color:var(--muted);font-size:13px;margin-bottom:6px}
+code{background:#f6f4ef;padding:2px 6px;border-radius:4px;color:var(--accent);word-break:break-all;font-size:13px}
+.tog{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
+.tog:last-child{border-bottom:none}
+.tog .d{font-size:12px;color:var(--muted);margin-top:2px}
+input[type=checkbox]{width:38px;height:20px;appearance:none;background:#e4e0d6;border-radius:10px;position:relative;cursor:pointer;transition:.2s;flex-shrink:0}
+input[type=checkbox]:checked{background:var(--accent)}
+input[type=checkbox]::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s}
+input[type=checkbox]:checked::after{left:20px}
+button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:9px 20px;font-size:14px;cursor:pointer;margin-top:12px}
+button:hover{opacity:.9}
+#msg{margin-top:10px;font-size:13px;min-height:16px}
+#msg.ok{color:var(--ok)}#msg.err{color:var(--err)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="band"><h1>🤖 MCP Agent</h1><div class="sub">AI 客户端经 MCP 协议读取 / 控制面板（Bearer 令牌认证）</div></div>
+  <div class="card">
+    <div class="t">连接地址：</div><code>/p/mcp-agent/mcp</code>
+    <div class="t" style="margin-top:10px">访问令牌：</div><code>__TOKEN__</code>
+  </div>
+  <div class="card">
+    <div class="t">工具开关（保存后重启插件生效）</div>
+    <div class="tog"><div>只读工具<div class="d">get_status / list_plugins / get_logs / get_metrics</div></div><input type="checkbox" id="enable_read"></div>
+    <div class="tog"><div>写操作<div class="d">plugin_action：启动/停止/重启/保活插件</div></div><input type="checkbox" id="enable_write"></div>
+    <div class="tog"><div>命令执行（高危）<div class="d">run_command：AI 可直接执行 shell，默认关闭</div></div><input type="checkbox" id="allow_shell"></div>
+    <button onclick="save()">保存并重启</button>
+    <div id="msg"></div>
+  </div>
+</div>
+<script>
+const TOK='__TOKEN__';
+const H={'Authorization':'Bearer '+TOK};
+async function load(){try{
+  const c=await(await fetch('api/config',{headers:H})).json();
+  document.getElementById('enable_read').checked=!!c.enable_read;
+  document.getElementById('enable_write').checked=!!c.enable_write;
+  document.getElementById('allow_shell').checked=!!c.allow_shell;
+}catch(e){msg('加载配置失败: '+e,false)}}
+function msg(t,ok){const el=document.getElementById('msg');el.textContent=t;el.className=ok?'ok':'err'}
+for (const id of ['enable_read','enable_write','allow_shell']) {
+  document.getElementById(id).addEventListener('change', save);
+}
+async function save(){try{
+  const c=await(await fetch('api/config',{headers:H})).json();
+  const body={panel_addr:c.panel_addr||'127.0.0.1:8787',admin_user:c.admin_user||'',admin_password:'',
+    enable_read:document.getElementById('enable_read').checked,
+    enable_write:document.getElementById('enable_write').checked,
+    allow_shell:document.getElementById('allow_shell').checked};
+  const r=await fetch('api/config',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},H),body:JSON.stringify(body)});
+  const d=await r.json();if(!r.ok)throw new Error(d.error||'保存失败');
+  msg('已保存，正在重启插件…',true);
+  setTimeout(async()=>{try{await fetch('/api/plugins/mcp-agent/restart',{method:'POST'});msg('已重启，新开关生效。',true)}catch(e){msg('已保存，请到插件详情手动重启',false)}},300);
+}catch(e){msg(e.message,false)}}
+load();
+</script>
+</body></html>

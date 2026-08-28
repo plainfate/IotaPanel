@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# 旧生态插件清单（模拟旧 Go 插件包的 manifest.yaml，字段与 Go 版完全一致）。
+# command 指向任意可执行文件/脚本 —— 核心只负责拉起进程并反代。
+name: legacy-demo
+title: Legacy 兼容演示
+version: 1.0.0
+author: IotaPanel 官方
+description: 旧生态兼容性测试：预编译 C 二进制插件，验证旧插件包可在 Rust 核心上安装运行
+language: c
+command: bin/legacy-demo
+bind: 127.0.0.1
+menus:
+  - title: Legacy 演示
+    icon: 🔌
+    path: /
+    section: tools

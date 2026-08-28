@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>IotaPanel</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div id="app" class="app-shell">
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <button class="icon-btn" id="sidebar-toggle" aria-label="toggle"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+    <div class="brand">
+      <img src="/favicon.svg" alt="IotaPanel" class="brand-logo">
+      <span class="brand-name">IotaPanel</span>
+      <span class="brand-ver" id="brand-ver"></span>
+    </div>
+    <div class="topbar-right">
+      <span id="plugin-chip" class="chip" hidden></span>
+      <button class="icon-btn" id="theme-toggle" title="主题"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 7 7 0 010-14 7 7 0 000-4z" fill="currentColor"/></svg></button>
+      <div class="user-menu">
+        <button class="user-chip" id="user-chip"><span id="user-name"></span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+        <div class="dropdown" id="user-menu" hidden>
+          <a href="#/account">账号设置</a>
+          <a href="#/sessions">登录会话</a>
+          <a href="#/log">运行日志</a>
+          <div class="divider"></div>
+          <a href="#" id="logout-btn">退出登录</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- 侧栏 -->
+    <nav class="sidebar" id="sidebar">
+      <div class="nav-section" id="system-nav">
+        <div class="sec-title" id="sec-system">系统</div>
+        <a class="nav-item" data-href="#/overview" data-i18n="nav.overview"><span class="nav-ico">▦</span><span class="nav-txt">概览</span></a>
+        <a class="nav-item" data-href="#/store" data-i18n="nav.store"><span class="nav-ico">▤</span><span class="nav-txt">插件商店</span></a>
+        <a class="nav-item" data-href="#/settings" data-i18n="nav.settings"><span class="nav-ico">⚙</span><span class="nav-txt">设置</span></a>
+      </div>
+      <div class="nav-section" id="plugin-nav">
+        <div class="sec-title" id="sec-plugins">插件</div>
+        <div id="plugin-menu-items"></div>
+      </div>
+      <div class="nav-foot" id="nav-foot">
+        <a class="nav-item" data-href="#/account"><span class="nav-ico">👤</span><span class="nav-txt">账号</span></a>
+        <a class="nav-item" data-href="#/log"><span class="nav-ico">☰</span><span class="nav-txt">日志</span></a>
+      </div>
+    </nav>
+
+    <!-- 主内容 -->
+    <main class="content" id="content"><div class="route-loading" data-i18n="loading">加载中…</div></main>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden><div class="lightbox-card" id="lightbox-card"></div></div>
+<div class="toast-container" id="toast-container"></div>
+<div class="confirm-box" id="confirm-box" hidden>
+  <div class="confirm-card">
+    <div class="confirm-title" id="confirm-title">确认</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-actions">
+      <button class="btn ghost" id="confirm-cancel">取消</button>
+      <button class="btn danger" id="confirm-ok">确定</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

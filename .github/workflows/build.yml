@@ -1,0 +1,74 @@
+name: build
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools gzip
+          if [[ "${{ matrix.target }}" == aarch64-* ]]; then
+            curl -fsSL https://musl.cc/aarch64-linux-musl-cross.tgz -o /tmp/aarch64-musl.tgz
+            sudo tar -xzf /tmp/aarch64-musl.tgz -C /opt
+            echo "CC_aarch64_unknown_linux_musl=/opt/aarch64-linux-musl-cross/bin/aarch64-linux-musl-gcc" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build (musl static)
+        run: ./build.sh --target ${{ matrix.target }}
+
+      - name: Verify static linkage
+        run: |
+          file bin/iotapanel
+          if ldd bin/iotapanel 2>&1 | grep -q "not a dynamic executable"; then
+            echo "OK: statically linked"
+          else
+            echo "FAIL: unexpected dynamic dependencies"; ldd bin/iotapanel; exit 1
+          fi
+
+      - name: Smoke test (x86_64 only)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          bin/iotapanel version
+          bin/iotapanel help | head -5
+
+      - name: E2E smoke test (x86_64 only)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: bash tests/smoke.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iotapanel-${{ matrix.target }}
+          path: bin/
+
+      - name: Package release tarball
+        run: ./build.sh --target ${{ matrix.target }} --package
+
+      - name: Upload release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: iotapanel-*.tar.gz

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 plainfate <https://github.com/plainfate>
+# 插件元信息（manifest.yaml）
+# 面板核心读取此文件，向侧边栏注入菜单，并据此拉起插件进程。
+name: file-manager
+title: 文件管理
+version: 0.1.0
+author: IotaPanel 官方
+description: 浏览、上传、下载、删除服务器文件
+language: rust
+command: bin/file-manager   # 相对本插件目录的可执行入口
+bind: 127.0.0.1             # 仅本机可访问，外部流量统一走面板网关
+menus:
+  - title: 文件管理
+    icon: 📁
+    path: /                 # 插件侧路由，点击后以 iframe 嵌入
+    section: tools
